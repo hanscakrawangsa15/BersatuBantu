@@ -15,6 +15,7 @@ dependencies:
   google_fonts: ^6.1.0  # Untuk custom fonts
   flutter_svg: ^2.0.9   # Jika butuh SVG
   shared_preferences: ^2.2.2  # Untuk menyimpan status onboarding
+  webview_flutter: ^4.4.2
 
 dev_dependencies:
   flutter_test:

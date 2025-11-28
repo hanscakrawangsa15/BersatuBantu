@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'core/theme/app_theme.dart';
-import 'features/splash/splash_screen.dart';
-import 'fitur/auth/login/login_screen.dart';
-import 'core/app-route.dart';
+import 'package:bersatubantu/core/theme/app_theme.dart';
+import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
+import 'package:bersatubantu/core/theme/app_constants.dart';
+import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
+import 'package:bersatubantu/core/utils/navigation_helper.dart';
+import 'package:bersatubantu/fitur/auth/login/login_screen.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,16 +27,17 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'BersatuBantu',
-      theme: AppTheme.lightTheme,
-      home: const SplashScreen(),
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        fontFamily: 'Poppins',
+      ),
+      home: SplashScreen(),
       debugShowCheckedModeBanner: false,
       routes: {
-        '/login': (context) => const LoginScreen(),
-        '/auth': (context) => const LoginScreen(),
+        '/login': (context) => LoginScreen(),
+        '/auth': (context) => LoginScreen(),
       },
     );
   }
 }
 
-// Global accessor untuk Supabase client
-final supabase = Supabase.instance.client;

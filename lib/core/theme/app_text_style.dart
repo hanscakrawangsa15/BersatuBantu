@@ -1,132 +1,43 @@
 import 'package:flutter/material.dart';
-import 'app_colors.dart';
+import 'app_text_styles.dart';
 
+/// Alias supaya kode lama yang memakai AppTextStyle tetap jalan
+/// Class ini cuma forwarding ke AppTextStyles yang sebenarnya
 class AppTextStyle {
   // Display Styles
-  static const TextStyle displayLarge = TextStyle(
-    fontSize: 32,
-    fontWeight: FontWeight.bold,
-    height: 1.2,
-    color: AppColors.textPrimary,
-  );
-
-  static const TextStyle displayMedium = TextStyle(
-    fontSize: 28,
-    fontWeight: FontWeight.bold,
-    height: 1.2,
-    color: AppColors.textPrimary,
-  );
-
-  static const TextStyle displaySmall = TextStyle(
-    fontSize: 24,
-    fontWeight: FontWeight.bold,
-    height: 1.3,
-    color: AppColors.textPrimary,
-  );
+  static const TextStyle displayLarge = AppTextStyles.displayLarge;
+  static const TextStyle displayMedium = AppTextStyles.displayMedium;
+  static const TextStyle displaySmall = AppTextStyles.displaySmall;
 
   // Heading Styles
-  static const TextStyle headingLarge = TextStyle(
-    fontSize: 20,
-    fontWeight: FontWeight.w700,
-    height: 1.4,
-    color: AppColors.textPrimary,
-  );
-
-  static const TextStyle headingMedium = TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.w700,
-    height: 1.4,
-    color: AppColors.textPrimary,
-  );
-
-  static const TextStyle headingSmall = TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.w700,
-    height: 1.5,
-    color: AppColors.textPrimary,
-  );
+  static const TextStyle headingLarge = AppTextStyles.headingLarge;
+  static const TextStyle headingMedium = AppTextStyles.headingMedium;
+  static const TextStyle headingSmall = AppTextStyles.headingSmall;
+  
+  // Heading Aliases
+  static const TextStyle h1 = AppTextStyles.h1;
+  static const TextStyle h2 = AppTextStyles.h2;
+  static const TextStyle h3 = AppTextStyles.h3;
+  static const TextStyle h4 = AppTextStyles.h4;
+  static const TextStyle h5 = AppTextStyles.h5;
 
   // Body Styles
-  static const TextStyle bodyLarge = TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.w500,
-    height: 1.5,
-    color: AppColors.textPrimary,
-  );
-
-  static const TextStyle bodyMedium = TextStyle(
-    fontSize: 14,
-    fontWeight: FontWeight.w500,
-    height: 1.5,
-    color: AppColors.textPrimary,
-  );
-
-  static const TextStyle bodySmall = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w500,
-    height: 1.5,
-    color: AppColors.textSecondary,
-  );
+  static const TextStyle bodyLarge = AppTextStyles.bodyLarge;
+  static const TextStyle bodyMedium = AppTextStyles.bodyMedium;
+  static const TextStyle bodySmall = AppTextStyles.bodySmall;
 
   // Label Styles
-  static const TextStyle labelLarge = TextStyle(
-    fontSize: 14,
-    fontWeight: FontWeight.w700,
-    height: 1.4,
-    letterSpacing: 0.5,
-    color: AppColors.textPrimary,
-  );
+  static const TextStyle labelLarge = AppTextStyles.labelLarge;
+  static const TextStyle labelMedium = AppTextStyles.labelMedium;
+  static const TextStyle labelSmall = AppTextStyles.labelSmall;
 
-  static const TextStyle labelMedium = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w700,
-    height: 1.4,
-    letterSpacing: 0.5,
-    color: AppColors.textSecondary,
-  );
+  // Button Styles
+  static const TextStyle button = AppTextStyles.button;
+  static const TextStyle buttonMedium = AppTextStyles.buttonMedium;
+  static const TextStyle buttonSmall = AppTextStyles.buttonSmall;
 
-  static const TextStyle labelSmall = TextStyle(
-    fontSize: 10,
-    fontWeight: FontWeight.w700,
-    height: 1.3,
-    letterSpacing: 0.5,
-    color: AppColors.textTertiary,
-  );
-
-  // Caption Styles
-  static const TextStyle captionLarge = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w400,
-    height: 1.4,
-    color: AppColors.textSecondary,
-  );
-
-  static const TextStyle captionSmall = TextStyle(
-    fontSize: 10,
-    fontWeight: FontWeight.w400,
-    height: 1.4,
-    color: AppColors.textTertiary,
-  );
-
-  // Button Text Styles
-  static const TextStyle buttonLarge = TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.w700,
-    height: 1.5,
-    letterSpacing: 0.5,
-  );
-
-  static const TextStyle buttonMedium = TextStyle(
-    fontSize: 14,
-    fontWeight: FontWeight.w700,
-    height: 1.4,
-    letterSpacing: 0.5,
-  );
-
-  static const TextStyle buttonSmall = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w700,
-    height: 1.3,
-    letterSpacing: 0.5,
-  );
+  // Special Styles
+  static const TextStyle caption = AppTextStyles.caption;
+  static const TextStyle captionSmall = AppTextStyles.captionSmall;
+  static const TextStyle overline = AppTextStyles.overline;
 }

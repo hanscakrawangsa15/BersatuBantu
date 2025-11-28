@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
-import 'app_text_style.dart';
+import 'app_text_styles.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      
+
       // Color Scheme
       colorScheme: ColorScheme.light(
         primary: AppColors.primaryBlue,
@@ -30,7 +30,7 @@ class AppTheme {
         centerTitle: true,
         backgroundColor: AppColors.bgPrimary,
         foregroundColor: AppColors.textPrimary,
-        titleTextStyle: AppTextStyle.headingLarge,
+        titleTextStyle: AppTextStyles.headingLarge,
         iconTheme: const IconThemeData(
           color: AppColors.textPrimary,
         ),
@@ -79,13 +79,13 @@ class AppTheme {
             width: 2,
           ),
         ),
-        hintStyle: AppTextStyle.bodyMedium.copyWith(
+        hintStyle: AppTextStyles.bodyMedium.copyWith(
           color: AppColors.textTertiary,
         ),
-        labelStyle: AppTextStyle.labelMedium.copyWith(
+        labelStyle: AppTextStyles.labelMedium.copyWith(
           color: AppColors.textPrimary,
         ),
-        errorStyle: AppTextStyle.captionSmall.copyWith(
+        errorStyle: AppTextStyles.captionSmall.copyWith(
           color: AppColors.errorRed,
         ),
       ),
@@ -103,7 +103,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          textStyle: AppTextStyle.buttonMedium,
+          textStyle: AppTextStyles.buttonMedium,
         ),
       ),
 
@@ -121,7 +121,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          textStyle: AppTextStyle.buttonMedium,
+          textStyle: AppTextStyles.buttonMedium,
         ),
       ),
 
@@ -132,7 +132,7 @@ class AppTheme {
             horizontal: 16,
             vertical: 8,
           ),
-          textStyle: AppTextStyle.buttonMedium,
+          textStyle: AppTextStyles.buttonMedium,
         ),
       ),
 
@@ -165,8 +165,8 @@ class AppTheme {
           borderRadius: BorderRadius.circular(16),
         ),
         backgroundColor: AppColors.bgPrimary,
-        titleTextStyle: AppTextStyle.headingMedium,
-        contentTextStyle: AppTextStyle.bodyMedium,
+        titleTextStyle: AppTextStyles.headingMedium,
+        contentTextStyle: AppTextStyles.bodyMedium,
       ),
 
       // Chip Theme
@@ -180,7 +180,7 @@ class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
-        labelStyle: AppTextStyle.labelSmall,
+        labelStyle: AppTextStyles.labelSmall,
       ),
 
       // Progress Indicator
@@ -191,21 +191,21 @@ class AppTheme {
 
       // Text Themes
       textTheme: TextTheme(
-        displayLarge: AppTextStyle.displayLarge,
-        displayMedium: AppTextStyle.displayMedium,
-        displaySmall: AppTextStyle.displaySmall,
-        headlineLarge: AppTextStyle.headingLarge,
-        headlineMedium: AppTextStyle.headingMedium,
-        headlineSmall: AppTextStyle.headingSmall,
-        titleLarge: AppTextStyle.headingLarge,
-        titleMedium: AppTextStyle.headingMedium,
-        titleSmall: AppTextStyle.headingSmall,
-        bodyLarge: AppTextStyle.bodyLarge,
-        bodyMedium: AppTextStyle.bodyMedium,
-        bodySmall: AppTextStyle.bodySmall,
-        labelLarge: AppTextStyle.labelLarge,
-        labelMedium: AppTextStyle.labelMedium,
-        labelSmall: AppTextStyle.labelSmall,
+        displayLarge: AppTextStyles.displayLarge,
+        displayMedium: AppTextStyles.displayMedium,
+        displaySmall: AppTextStyles.displaySmall,
+        headlineLarge: AppTextStyles.headingLarge,
+        headlineMedium: AppTextStyles.headingMedium,
+        headlineSmall: AppTextStyles.headingSmall,
+        titleLarge: AppTextStyles.headingLarge,
+        titleMedium: AppTextStyles.headingMedium,
+        titleSmall: AppTextStyles.headingSmall,
+        bodyLarge: AppTextStyles.bodyLarge,
+        bodyMedium: AppTextStyles.bodyMedium,
+        bodySmall: AppTextStyles.bodySmall,
+        labelLarge: AppTextStyles.labelLarge,
+        labelMedium: AppTextStyles.labelMedium,
+        labelSmall: AppTextStyles.labelSmall,
       ),
 
       // Other Properties

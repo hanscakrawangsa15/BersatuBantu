@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_text_style.dart';
-import '../../core/widgets/app-button.dart';
-import '../auth/login/login_screen.dart';
+import 'package:bersatubantu/fitur/auth/login/login_screen.dart';
+import '../../core/theme/app_colors.dart';           // ✅ Goes up 2 levels
+import '../../core/theme/app_constants.dart';        // ✅
+import '../../core/theme/app_spacing.dart';          // ✅
+import '../../core/theme/app_text_style.dart';       // ✅ Fixed filename too
+import '../../core/theme/phone_frame_layout.dart';   // ✅
+import '../../core/utils/navigation_helper.dart';
+import 'package:bersatubantu/core/theme/app_text_styles.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({Key? key}) : super(key: key);
@@ -12,221 +15,208 @@ class WelcomeScreen extends StatefulWidget {
   State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-class _WelcomeScreenState extends State<WelcomeScreen>
-    with SingleTickerProviderStateMixin {
-  late PageController _pageController;
-  int _currentPage = 0;
-  late AnimationController _animationController;
+class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+    
+    _controller = AnimationController(
+      duration: Duration(milliseconds: AppConstants.animationDuration),
       vsync: this,
     );
-    _animationController.forward();
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+
+    _controller.forward();
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
-    _animationController.dispose();
+    _controller.dispose();
     super.dispose();
-  }
-
-  Future<void> _completeOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('has_seen_onboarding', true);
-
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => LoginScreen(),
-        ),
-      );
-    }
-  }
-
-  void _skipOnboarding() {
-    _completeOnboarding();
-  }
-
-  void _nextPage() {
-    if (_currentPage < 2) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    } else {
-      _completeOnboarding();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bgPrimary,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Skip Button
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _skipOnboarding,
-                    child: Text(
-                      'Skip',
-                      style: AppTextStyle.labelMedium.copyWith(
-                        color: AppColors.primaryBlue,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFE8F0FE), // Light blue
+              Color(0xFFF3EFFF), // Light purple
+              Color(0xFFFCE4EC), // Light pink
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: AppSpacing.screenPaddingLarge,
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Logo dengan border seperti di Figma
+                    Container(
+                      width: 180,
+                      height: 180,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: AppColors.primary.withOpacity(0.3),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.15),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Image.asset(
+                        'assets/bersatubantu.png',
+                        fit: BoxFit.contain,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-
-            // PageView
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (index) {
-                  setState(() => _currentPage = index);
-                },
-                children: [
-                  _buildPage(
-                    icon: '🤝',
-                    title: 'Bersatu Membantu',
-                    description:
-                        'Bergabunglah dengan komunitas yang peduli dan saling membantu.',
-                  ),
-                  _buildPage(
-                    icon: '💝',
-                    title: 'Donasi Mudah',
-                    description:
-                        'Berikan bantuan Anda dengan cara yang mudah dan aman.',
-                  ),
-                  _buildPage(
-                    icon: '🌟',
-                    title: 'Buat Perbedaan',
-                    description:
-                        'Setiap kontribusi Anda membuat perbedaan bagi banyak orang.',
-                  ),
-                ],
-              ),
-            ),
-
-            // Dots Indicator
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  3,
-                  (index) => Container(
-                    width: _currentPage == index ? 32 : 8,
-                    height: 8,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(
-                      color: _currentPage == index
-                          ? AppColors.primaryBlue
-                          : AppColors.bgSecondary,
-                      borderRadius: BorderRadius.circular(4),
+                    
+                    AppSpacing.verticalSpaceLG,
+                    
+                    // Welcome Text
+                    Text(
+                      'Selamat Datang,',
+                      style: AppTextStyles.h4.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.normal,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                ),
-              ),
-            ),
-
-            // Bottom Buttons
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: AppButton(
-                      label: _currentPage == 2 ? 'Mulai Sekarang' : 'Lanjut',
-                      onPressed: _nextPage,
-                      size: ButtonSize.large,
+                    
+                    AppSpacing.verticalSpaceSM,
+                    
+                    // App Name dengan gradient
+                    ShaderMask(
+                      shaderCallback: (bounds) => LinearGradient(
+                        colors: [AppColors.primary, AppColors.secondary],
+                      ).createShader(bounds),
+                      child: Text(
+                        'Pahlawan!',
+                        style: AppTextStyles.displayMedium.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                  ),
-                  if (_currentPage < 2) ...[
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: AppButton(
-                        label: 'Kembali',
-                        onPressed: () {
-                          if (_currentPage > 0) {
-                            _pageController.previousPage(
-                              duration: const Duration(milliseconds: 500),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        },
-                        variant: ButtonVariant.outline,
-                        size: ButtonSize.large,
+                    
+                    AppSpacing.verticalSpaceMD,
+                    
+                    // Tagline
+                    Padding(
+                      padding: AppSpacing.horizontalXL,
+                      child: Text(
+                        'Mari bersama membangun komunitas yang saling membantu',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.textSecondary,
+                          height: 1.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    
+                    AppSpacing.verticalSpaceXXL,
+                    AppSpacing.verticalSpaceLG,
+                    
+                    // Button Mulai
+                    _buildStartButton(),
+                    
+                    AppSpacing.verticalSpaceLG,
+                    
+                    // Skip Text
+                    TextButton(
+                      onPressed: () {
+                        // Navigate to home or skip intro
+                      },
+                      child: Text(
+                        'Lewati',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.textHint,
+                        ),
                       ),
                     ),
                   ],
-                ],
+                ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildPage({
-    required String icon,
-    required String title,
-    required String description,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Icon
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: AppColors.bgSecondary,
-              borderRadius: BorderRadius.circular(24),
+  Widget _buildStartButton() {
+    return GestureDetector(
+      onTap: () {
+        NavigationHelper.slideNavigate(
+          context,
+          LoginScreen(),
+          durationMs: AppConstants.transitionDuration,
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppColors.primary, AppColors.secondary],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.3),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
             ),
-            child: Center(
-              child: Text(
-                icon,
-                style: const TextStyle(fontSize: 60),
+          ],
+        ),
+        child: Center(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Mulai',
+                style: AppTextStyles.button.copyWith(
+                  color: Colors.white,
+                  fontSize: 18,
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ],
           ),
-          const SizedBox(height: 32),
-
-          // Title
-          Text(
-            title,
-            style: AppTextStyle.displaySmall,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-
-          // Description
-          Text(
-            description,
-            style: AppTextStyle.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+        ),
       ),
     );
   }

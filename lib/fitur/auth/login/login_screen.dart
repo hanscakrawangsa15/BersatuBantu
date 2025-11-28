@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_text_style.dart';
-import '../../../core/widgets/app_scaffold.dart';
-import '../../../core/widgets/form_layout.dart';
-import '../../../core/widgets/app-button.dart';
-import '../../../core/widgets/app-text-field.dart';
-import '../../../core/widgets/app_dialog.dart';
+
+import 'package:bersatubantu/core/theme/app_colors.dart';
+import 'package:bersatubantu/core/theme/app_constants.dart';
+import 'package:bersatubantu/core/theme/app_spacing.dart';
+import 'package:bersatubantu/core/theme/app_text_style.dart';
+import 'package:bersatubantu/core/theme/phone_frame_layout.dart';
+
+import 'package:bersatubantu/core/utils/navigation_helper.dart';
+import 'package:bersatubantu/core/utils/responsive_helper.dart';
+
+import 'package:bersatubantu/core/widgets/custom_text_field.dart';
+import 'package:bersatubantu/core/widgets/custom_button.dart';
+import 'package:bersatubantu/core/theme/app_text_styles.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -14,237 +21,366 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
+
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  bool _obscurePassword = true;
   bool _isLoading = false;
-  String? _errorEmail;
-  String? _errorPassword;
+
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAnimations();
+  }
+
+  void _setupAnimations() {
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+
+    _controller.forward();
+  }
 
   @override
   void dispose() {
+    _controller.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  bool _validateForm() {
-    setState(() {
-      _errorEmail = _emailController.text.isEmpty
-          ? 'Email tidak boleh kosong'
-          : !_isValidEmail(_emailController.text)
-              ? 'Format email tidak valid'
-              : null;
+  void _handleLogin() {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
 
-      _errorPassword = _passwordController.text.isEmpty
-          ? 'Password tidak boleh kosong'
-          : _passwordController.text.length < 6
-              ? 'Password minimal 6 karakter'
-              : null;
-    });
-
-    return _errorEmail == null && _errorPassword == null;
-  }
-
-  bool _isValidEmail(String email) {
-    final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
-    return emailRegex.hasMatch(email);
-  }
-
-  Future<void> _handleLogin() async {
-    if (!_validateForm()) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      // Simulasi login (replace dengan actual Supabase call)
-      await Future.delayed(const Duration(seconds: 2));
-
-      if (mounted) {
-        AppSnackBar.show(
-          context,
-          message: 'Berhasil masuk!',
-          type: SnackBarType.success,
-        );
-
-        // Navigate to home
-        Navigator.of(context).pushReplacementNamed('/home');
-      }
-    } catch (e) {
-      if (mounted) {
-        AppSnackBar.show(
-          context,
-          message: 'Gagal masuk: ${e.toString()}',
-          type: SnackBarType.error,
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      // Simulate API call
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          // Navigate to home or show success
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login berhasil!')),
+          );
+        }
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
-      showAppBar: false,
-      showBackButton: false,
-      body: SingleChildScrollView(
-        child: FormLayout(
-          title: 'Selamat Datang',
-          subtitle: 'di Bersatu Bantu!',
-          fields: [
-            AppTextField(
-              label: 'Email',
-              hint: 'Masukkan email Anda',
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              isRequired: true,
-              errorText: _errorEmail,
-              prefixIcon: const Icon(Icons.email_outlined),
-              onChanged: (_) => setState(() => _errorEmail = null),
-            ),
-            AppTextField(
-              label: 'Password',
-              hint: 'Masukkan password Anda',
-              controller: _passwordController,
-              isPassword: true,
-              isRequired: true,
-              errorText: _errorPassword,
-              onChanged: (_) => setState(() => _errorPassword = null),
-            ),
-          ],
-          submitButton: Column(
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: AppButton(
-                  label: 'Masuk',
-                  onPressed: _handleLogin,
-                  isLoading: _isLoading,
-                  size: ButtonSize.large,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: () {
-                    // Navigate to forgot password
-                  },
-                  child: Text(
-                    'Lupa Password?',
-                    style: AppTextStyle.bodySmall.copyWith(
-                      color: AppColors.primaryBlue,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+    return Scaffold(
+      body: PhoneFrameLayout(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: AppColors.primaryGradient,
+        ),
+        isScrollable: true,
+        child: _buildContent(),
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        SizedBox(height: ResponsiveHelper.screenHeight(context) * 0.05),
+
+        // Login Card with Animation
+        FadeTransition(
+          opacity: _fadeAnimation,
+          child: SlideTransition(
+            position: _slideAnimation,
+            child: _buildLoginCard(),
           ),
-          bottomWidget: Column(
-            children: [
-              const SizedBox(height: 8),
-              Divider(
-                color: AppColors.borderLight,
-                height: 32,
-              ),
-              Text(
-                'Atau lanjutkan dengan',
-                style: AppTextStyle.bodySmall.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _SocialButton(
-                    icon: Icons.g_mobiledata,
-                    label: 'Google',
-                    onTap: () {},
-                  ),
-                  const SizedBox(width: 16),
-                  _SocialButton(
-                    icon: Icons.apple,
-                    label: 'Apple',
-                    onTap: () {},
-                  ),
-                  const SizedBox(width: 16),
-                  _SocialButton(
-                    icon: Icons.facebook,
-                    label: 'Facebook',
-                    onTap: () {},
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Belum memiliki akun? ',
-                    style: AppTextStyle.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.of(context).pushNamed('/register');
-                    },
-                    child: Text(
-                      'Daftar',
-                      style: AppTextStyle.bodySmall.copyWith(
-                        color: AppColors.primaryBlue,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+        ),
+
+        SizedBox(height: ResponsiveHelper.screenHeight(context) * 0.05),
+      ],
+    );
+  }
+
+  Widget _buildLoginCard() {
+    return Container(
+      constraints: BoxConstraints(
+        maxWidth: AppConstants.maxCardWidth,
+      ),
+      padding: AppSpacing.cardPaddingLarge,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppConstants.radiusRound),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadowDark,
+            blurRadius: 40,
+            offset: const Offset(0, 20),
+            spreadRadius: 5,
+          ),
+        ],
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(),
+            AppSpacing.verticalSpaceXL,
+            _buildEmailField(),
+            AppSpacing.verticalSpaceMD,
+            _buildPasswordField(),
+            _buildForgotPasswordButton(),
+            AppSpacing.verticalSpaceLG,
+            _buildLoginButton(),
+            AppSpacing.verticalSpaceLG,
+            _buildDividerText(),
+            AppSpacing.verticalSpaceLG,
+            _buildSocialButtons(),
+            AppSpacing.verticalSpaceLG,
+            _buildRegisterLink(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
+      children: [
+        Text(
+          'Selamat Datang',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.h3.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+        AppSpacing.verticalSpaceXS,
+        Text(
+          'di ${AppConstants.appName}!',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.h4.copyWith(
+            color: AppColors.primary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmailField() {
+    return CustomTextField(
+      label: 'Username or E-mail',
+      hint: 'email@example.com',
+      controller: _emailController,
+      prefixIcon: Icons.mail_outline,
+      keyboardType: TextInputType.emailAddress,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Email tidak boleh kosong';
+        }
+        if (!value.contains('@')) {
+          return 'Email tidak valid';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return CustomTextField(
+      label: 'Password',
+      hint: '••••••••',
+      controller: _passwordController,
+      prefixIcon: Icons.lock_outline,
+      obscureText: _obscurePassword,
+      suffixIcon: IconButton(
+        icon: Icon(
+          _obscurePassword
+              ? Icons.visibility_off_outlined
+              : Icons.visibility_outlined,
+          color: AppColors.textSecondary,
+          size: 22,
+        ),
+        onPressed: () {
+          setState(() => _obscurePassword = !_obscurePassword);
+        },
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Password tidak boleh kosong';
+        }
+        if (value.length < 6) {
+          return 'Password minimal 6 karakter';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildForgotPasswordButton() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton(
+        onPressed: () {
+          // Handle forgot password
+        },
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.symmetric(
+            horizontal: AppSpacing.xs,
+            vertical: AppSpacing.sm,
+          ),
+        ),
+        child: Text(
+          'Lupa Kata Sandi?',
+          style: AppTextStyles.labelMedium.copyWith(
+            color: AppColors.primary,
           ),
         ),
       ),
     );
   }
-}
 
-class _SocialButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
+  Widget _buildLoginButton() {
+    return CustomButton(
+      text: 'Lanjut',
+      onPressed: _isLoading ? null : _handleLogin,
+      isLoading: _isLoading,
+      backgroundColor: AppColors.primary,
+    );
+  }
 
-  const _SocialButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
+  Widget _buildDividerText() {
+    return Row(
+      children: [
+        const Expanded(child: Divider(color: AppColors.border)),
+        Padding(
+          padding: AppSpacing.horizontalMD,
+          child: Text(
+            'Atau masuk dengan',
+            style: AppTextStyles.labelMedium.copyWith(
+              color: AppColors.textHint,
+            ),
+          ),
+        ),
+        const Expanded(child: Divider(color: AppColors.border)),
+      ],
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget _buildSocialButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildSocialButton(
+          icon: Icons.g_mobiledata,
+          color: Colors.white,
+          iconColor: Colors.red,
+          onTap: () {
+            // Handle Google login
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Google login clicked')),
+            );
+          },
+        ),
+        AppSpacing.horizontalSpaceMD,
+        _buildSocialButton(
+          icon: Icons.apple,
+          color: Colors.black,
+          iconColor: Colors.white,
+          onTap: () {
+            // Handle Apple login
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Apple login clicked')),
+            );
+          },
+        ),
+        AppSpacing.horizontalSpaceMD,
+        _buildSocialButton(
+          icon: Icons.facebook,
+          color: AppColors.primary,
+          iconColor: Colors.white,
+          onTap: () {
+            // Handle Facebook login
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Facebook login clicked')),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSocialButton({
+    required IconData icon,
+    required Color color,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(27),
       child: Container(
-        width: 56,
-        height: 56,
+        width: 54,
+        height: 54,
         decoration: BoxDecoration(
-          color: AppColors.bgSecondary,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.borderLight,
-          ),
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.border, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow,
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Center(
-          child: Icon(
-            icon,
-            color: AppColors.primaryBlue,
-            size: 24,
-          ),
-        ),
+        child: Icon(icon, color: iconColor, size: 28),
       ),
+    );
+  }
+
+  Widget _buildRegisterLink() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          'Belum mempunyai akun? ',
+          style: AppTextStyles.labelMedium,
+        ),
+        GestureDetector(
+          onTap: () {
+            // Navigate to register screen
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Navigate to Register')),
+            );
+          },
+          child: Text(
+            'Daftar',
+            style: AppTextStyles.labelMedium.copyWith(
+              color: AppColors.primary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
