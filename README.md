@@ -10,7 +10,7 @@ Proyek ini dikembangkan oleh:
 
 | Nama | NRP | GitHub |
 |:---:|:---:|:---:|
-| Daniel Setiawan | 5026231010 | kevin-079 |
+| Daniel Setiawan | 5026231010 | eLlawliet|
 | Izzuddin Hammadi Faiz | 5026231018 | freudian178 |
 | Kevin Nathanael | 5026231079 | kevin-079 |
 | Hans Christian Cakrawangsa | 5026231130 | hanscakrawangsa15 |
