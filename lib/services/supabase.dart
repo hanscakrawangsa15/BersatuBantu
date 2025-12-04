@@ -147,10 +147,10 @@ class SupabaseService {
   Future<String> uploadFile({
     required String bucket,
     required String path,
-    required String filePath,
+    required dynamic file,
   }) async {
     try {
-      await _client.storage.from(bucket).upload(path, filePath);
+      await _client.storage.from(bucket).upload(path, file);
       return _client.storage.from(bucket).getPublicUrl(path);
     } catch (e) {
       rethrow;

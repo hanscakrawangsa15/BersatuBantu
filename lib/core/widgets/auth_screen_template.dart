@@ -5,8 +5,6 @@ import 'app_scaffold.dart';
 import 'app-button.dart';
 import 'app-text-field.dart';
 import 'form_layout.dart';
-import 'action_card.dart';
-import 'feature_card.dart';
 
 /// Template Screen untuk Authentication (Login/Register)
 /// Gunakan sebagai referensi untuk implementasi auth screens
