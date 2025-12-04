@@ -6,6 +6,7 @@ import 'package:bersatubantu/core/theme/app_constants.dart';
 import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
 import 'package:bersatubantu/core/utils/navigation_helper.dart';
 import 'package:bersatubantu/fitur/auth/login/login_screen.dart';
+import 'package:bersatubantu/cekkoneksi/cek_koneksi.dart';
 
 
 Future<void> main() async {
@@ -36,6 +37,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (context) => LoginScreen(),
         '/auth': (context) => LoginScreen(),
+        '/cek_koneksi': (context) => CekKoneksiPage(),
       },
     );
   }
