@@ -26,7 +26,7 @@ BersatuBantu adalah aplikasi mobile berbasis Flutter (Dart) yang dibangun untuk 
 
 ---
 
-### 🎯 Fokus Pengembangan: Flutter Mobile App + Supabase sebagai BaaS (Database PostgreSQL & Storage)
+### Fokus Pengembangan: Flutter Mobile App + Supabase sebagai BaaS (Database PostgreSQL & Storage)
 
 ### 🎯 MVP (Minimum Viable Product)
 
