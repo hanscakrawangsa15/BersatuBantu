@@ -70,7 +70,7 @@ class _ActionCardState extends State<ActionCard>
             .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
         child: Card(
           elevation: widget.elevation ?? 0,
-          backgroundColor: widget.backgroundColor ?? AppColors.bgPrimary,
+          color: widget.backgroundColor ?? AppColors.bgPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(widget.borderRadius),
             side: BorderSide(

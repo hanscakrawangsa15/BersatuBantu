@@ -6,7 +6,7 @@ import '../../../core/widgets/form_layout.dart';
 import '../../../core/widgets/app-button.dart';
 import '../../../core/widgets/app-text-field.dart';
 import '../../../core/widgets/app_dialog.dart';
-import 'login_screen.dart';
+import '../login/login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
