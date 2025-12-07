@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'core/theme/app_theme.dart';
-import 'features/splash/splash_screen.dart';
-import 'fitur/auth/login/login_screen.dart';
-import 'core/app-route.dart';
+import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
+import 'package:bersatubantu/services/supabase.dart' as app_supabase;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   // Initialize Supabase
   await Supabase.initialize(
@@ -17,6 +21,9 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
+// Global Supabase client
+final supabase = Supabase.instance.client;
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -24,16 +31,19 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'BersatuBantu',
-      theme: AppTheme.lightTheme,
-      home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
-      routes: {
-        '/login': (context) => const LoginScreen(),
-        '/auth': (context) => const LoginScreen(),
-      },
+      theme: ThemeData(
+        primaryColor: const Color(0xFF768BBD),
+        scaffoldBackgroundColor: Colors.white,
+        fontFamily: 'CircularStd',
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF768BBD),
+          primary: const Color(0xFF768BBD),
+          secondary: const Color(0xFF364057),
+        ),
+        useMaterial3: true,
+      ),
+      home: const SplashScreen(),
     );
   }
 }
-
-// Global accessor untuk Supabase client
-final supabase = Supabase.instance.client;
