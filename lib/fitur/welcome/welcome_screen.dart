@@ -1,232 +1,147 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_text_style.dart';
-import '../../core/widgets/app-button.dart';
-import '../auth/login/login_screen.dart';
+import 'package:bersatubantu/fitur/auth/login/login_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
-  const WelcomeScreen({Key? key}) : super(key: key);
+  const WelcomeScreen({super.key});
 
   @override
   State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-class _WelcomeScreenState extends State<WelcomeScreen>
-    with SingleTickerProviderStateMixin {
-  late PageController _pageController;
-  int _currentPage = 0;
+class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
       vsync: this,
+      duration: const Duration(milliseconds: 800),
     );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeIn,
+      ),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
     _animationController.forward();
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
     _animationController.dispose();
     super.dispose();
-  }
-
-  Future<void> _completeOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('has_seen_onboarding', true);
-
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => LoginScreen(),
-        ),
-      );
-    }
-  }
-
-  void _skipOnboarding() {
-    _completeOnboarding();
-  }
-
-  void _nextPage() {
-    if (_currentPage < 2) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    } else {
-      _completeOnboarding();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bgPrimary,
+      backgroundColor: Colors.white,
       body: SafeArea(
-        child: Column(
-          children: [
-            // Skip Button
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _skipOnboarding,
-                    child: Text(
-                      'Skip',
-                      style: AppTextStyle.labelMedium.copyWith(
-                        color: AppColors.primaryBlue,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40.0),
+          child: Column(
+            children: [
+              const Spacer(flex: 2),
+              
+              // Welcome Text with Animation
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: SlideTransition(
+                  position: _slideAnimation,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Selamat Datang,',
+                        style: TextStyle(
+                          fontSize: 24,
+                          color: const Color(0xFF768BBD).withOpacity(0.7),
+                          fontFamily: 'CircularStd',
+                          fontWeight: FontWeight.w400,
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Pahlawan!',
+                        style: TextStyle(
+                          fontSize: 52,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF768BBD),
+                          fontFamily: 'CircularStd',
+                          height: 1.1,
+                          letterSpacing: -1,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-
-            // PageView
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (index) {
-                  setState(() => _currentPage = index);
-                },
-                children: [
-                  _buildPage(
-                    icon: '🤝',
-                    title: 'Bersatu Membantu',
-                    description:
-                        'Bergabunglah dengan komunitas yang peduli dan saling membantu.',
-                  ),
-                  _buildPage(
-                    icon: '💝',
-                    title: 'Donasi Mudah',
-                    description:
-                        'Berikan bantuan Anda dengan cara yang mudah dan aman.',
-                  ),
-                  _buildPage(
-                    icon: '🌟',
-                    title: 'Buat Perbedaan',
-                    description:
-                        'Setiap kontribusi Anda membuat perbedaan bagi banyak orang.',
-                  ),
-                ],
-              ),
-            ),
-
-            // Dots Indicator
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  3,
-                  (index) => Container(
-                    width: _currentPage == index ? 32 : 8,
-                    height: 8,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(
-                      color: _currentPage == index
-                          ? AppColors.primaryBlue
-                          : AppColors.bgSecondary,
-                      borderRadius: BorderRadius.circular(4),
+              
+              const Spacer(flex: 3),
+              
+              // Next Button with Animation
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).pushReplacement(
+                        PageRouteBuilder(
+                          pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+                          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                            const begin = Offset(1.0, 0.0);
+                            const end = Offset.zero;
+                            const curve = Curves.easeInOut;
+                            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                            var offsetAnimation = animation.drive(tween);
+                            return SlideTransition(position: offsetAnimation, child: child);
+                          },
+                          transitionDuration: const Duration(milliseconds: 400),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFF364057),
+                          width: 2,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        color: Color(0xFF364057),
+                        size: 20,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-
-            // Bottom Buttons
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: AppButton(
-                      label: _currentPage == 2 ? 'Mulai Sekarang' : 'Lanjut',
-                      onPressed: _nextPage,
-                      size: ButtonSize.large,
-                    ),
-                  ),
-                  if (_currentPage < 2) ...[
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: AppButton(
-                        label: 'Kembali',
-                        onPressed: () {
-                          if (_currentPage > 0) {
-                            _pageController.previousPage(
-                              duration: const Duration(milliseconds: 500),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        },
-                        variant: ButtonVariant.outline,
-                        size: ButtonSize.large,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
+              
+              const SizedBox(height: 60),
+            ],
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildPage({
-    required String icon,
-    required String title,
-    required String description,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Icon
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: AppColors.bgSecondary,
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Center(
-              child: Text(
-                icon,
-                style: const TextStyle(fontSize: 60),
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
-
-          // Title
-          Text(
-            title,
-            style: AppTextStyle.displaySmall,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-
-          // Description
-          Text(
-            description,
-            style: AppTextStyle.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
       ),
     );
   }
