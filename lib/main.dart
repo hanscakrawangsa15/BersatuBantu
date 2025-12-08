@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
 import 'package:bersatubantu/services/supabase.dart' as app_supabase;
+import 'package:bersatubantu/services/debug_auth_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

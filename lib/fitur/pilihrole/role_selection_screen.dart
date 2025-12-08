@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:bersatubantu/fitur/loading/loading_screen.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
   final String userId;
@@ -32,20 +33,49 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
           .eq('id', userId);
 
       if (mounted) {
-        // Navigate to home screen or dashboard based on role
-        // TODO: Replace with your actual home screen
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Berhasil memilih sebagai ${role == 'user' ? 'Personal' : 'Organisasi'}'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        
-        // Navigate to home screen
-        // Navigator.of(context).pushReplacement(
-        //   MaterialPageRoute(builder: (context) => const HomeScreen()),
-        // );
+        // Navigate to loading screen for Personal role
+        if (role == 'user') {
+          Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => const LoadingScreen(),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                const begin = Offset(1.0, 0.0);
+                const end = Offset.zero;
+                const curve = Curves.easeInOut;
+                var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                var offsetAnimation = animation.drive(tween);
+                return SlideTransition(position: offsetAnimation, child: child);
+              },
+              transitionDuration: const Duration(milliseconds: 400),
+            ),
+          );
+        } else {
+          // For Organisasi role, show success message and navigate directly
+          // TODO: Navigate to organization dashboard
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Berhasil memilih sebagai Organisasi'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+          
+          // Navigate to loading screen (you can change this to organization dashboard later)
+          Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => const LoadingScreen(),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                const begin = Offset(1.0, 0.0);
+                const end = Offset.zero;
+                const curve = Curves.easeInOut;
+                var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                var offsetAnimation = animation.drive(tween);
+                return SlideTransition(position: offsetAnimation, child: child);
+              },
+              transitionDuration: const Duration(milliseconds: 400),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
