@@ -3,8 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:bersatubantu/fitur/auth/register/register_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/pilihrole/role_selection_screen.dart';
-import 'package:crypto/crypto.dart';
-import 'dart:convert';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -54,12 +52,6 @@ class _LoginScreenState extends State<LoginScreen> {
     return null;
   }
 
-  String _hashPassword(String password) {
-    var bytes = utf8.encode(password);
-    var digest = sha256.convert(bytes);
-    return digest.toString();
-  }
-
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -70,60 +62,131 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final hashedPassword = _hashPassword(_passwordController.text);
+      print('[Login] Attempting to login with email: ${_emailController.text.trim()}');
+      
+      // Use Supabase Auth for login
+      final response = await supabase.auth.signInWithPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
-      // Check credentials in profiles table only (no Supabase Auth)
-      final response = await supabase
+      print('[Login] Auth response: ${response.user?.id}');
+
+      if (response.user == null) {
+        throw 'Login gagal: User tidak ditemukan';
+      }
+
+      // Get user profile from database
+      final profileResponse = await supabase
           .from('profiles')
-          .select()
-          .eq('email', _emailController.text.trim())
-          .eq('password_hash', hashedPassword)
+          .select('id, full_name, role')
+          .eq('id', response.user!.id)
           .maybeSingle();
 
-      if (response == null) {
-        throw 'Email atau password salah';
+      print('[Login] Profile response: $profileResponse');
+      print('[Login] Profile response type: ${profileResponse.runtimeType}');
+
+      if (!mounted) {
+        print('[Login] Widget not mounted, returning');
+        return;
       }
 
-      // Check if user has selected role
-      final userRole = response['role'] as String?;
-      
-      if (mounted) {
-        if (userRole == null || userRole == 'user') {
-          // Navigate to role selection if role not set or default
+      if (profileResponse == null) {
+        // Profile not found, create one
+        print('[Login] Profile not found, creating new profile');
+        try {
+          await supabase.from('profiles').insert({
+            'id': response.user!.id,
+            'email': _emailController.text.trim(),
+            'full_name': _emailController.text.trim().split('@')[0],
+          });
+          print('[Login] New profile created successfully');
+        } catch (e) {
+          print('[Login] Error creating profile: $e');
+        }
+        
+        // After creating profile, navigate to role selection
+        if (mounted) {
+          print('[Login] Navigating to role selection (new profile)');
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (context) => RoleSelectionScreen(userId: response['id']),
+              builder: (context) => RoleSelectionScreen(userId: response.user!.id),
             ),
           );
+        }
+      } else {
+        // Profile exists, check if user has selected role
+        final userRole = profileResponse['role'];
+        print('[Login] User role value: "$userRole"');
+        print('[Login] User role type: ${userRole.runtimeType}');
+        print('[Login] User role is null: ${userRole == null}');
+        print('[Login] User role isEmpty: ${(userRole as String?)?.isEmpty ?? "N/A"}');
+        
+        // Check if role is null or empty
+        final roleIsEmpty = userRole == null || 
+                           (userRole is String && userRole.isEmpty);
+        
+        if (roleIsEmpty) {
+          // Navigate to role selection if role not set
+          print('[Login] Role is empty, navigating to role selection');
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => RoleSelectionScreen(userId: response.user!.id),
+              ),
+            );
+          }
         } else {
-          // Navigate to home if role already set
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Login berhasil!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-          
-          // TODO: Navigate to home screen based on role
-          // Navigator.of(context).pushReplacement(
-          //   MaterialPageRoute(builder: (context) => const HomeScreen()),
-          // );
+          // Role already set, show success message
+          print('[Login] Role found: $userRole, showing success message');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Login berhasil!'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+            
+            // TODO: Navigate to home screen based on role
+            print('[Login] TODO: Navigate to dashboard based on role: $userRole');
+            // Navigator.of(context).pushReplacement(
+            //   MaterialPageRoute(builder: (context) => const HomeScreen()),
+            // );
+          }
         }
       }
-    } catch (e) {
+    } on AuthException catch (e) {
+      print('[Login] Auth error: ${e.message}');
+      
       if (mounted) {
         String errorMessage = 'Login gagal';
         
-        if (e.toString().contains('Email atau password salah')) {
+        if (e.message.contains('Invalid login credentials')) {
           errorMessage = 'Email atau password salah';
+        } else if (e.message.contains('User not found')) {
+          errorMessage = 'Email tidak terdaftar';
+        } else if (e.message.contains('Email not confirmed')) {
+          errorMessage = 'Email belum dikonfirmasi';
         } else {
-          errorMessage = 'Login gagal: ${e.toString()}';
+          errorMessage = 'Login gagal: ${e.message}';
         }
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      print('[Login] Error: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Login gagal: ${e.toString()}'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
           ),
