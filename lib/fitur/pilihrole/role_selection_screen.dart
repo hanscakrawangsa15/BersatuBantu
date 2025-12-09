@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:bersatubantu/fitur/auth/login/login_screen.dart';
 import 'package:bersatubantu/fitur/loading/loading_screen.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
-  final String userId;
+  final String? userId;
   
   const RoleSelectionScreen({
     super.key,
-    required this.userId,
+    this.userId,
   });
 
   @override
@@ -26,14 +27,35 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     try {
       final userId = widget.userId;
 
-      // Update role in profiles table
+      // Jika belum login (userId null), langsung arahkan ke LoginScreen
+      if (userId == null) {
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => LoginScreen(selectedRole: role),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                const begin = Offset(1.0, 0.0);
+                const end = Offset.zero;
+                const curve = Curves.easeInOut;
+                var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                var offsetAnimation = animation.drive(tween);
+                return SlideTransition(position: offsetAnimation, child: child);
+              },
+              transitionDuration: const Duration(milliseconds: 400),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Jika sudah login (userId tersedia), simpan role ke profiles
       await supabase
           .from('profiles')
           .update({'role': role})
           .eq('id', userId);
 
       if (mounted) {
-        // Navigate to loading screen for Personal role
+        // Navigate ke layar berikutnya setelah set role
         if (role == 'user') {
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(
@@ -50,8 +72,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             ),
           );
         } else {
-          // For Organisasi role, show success message and navigate directly
-          // TODO: Navigate to organization dashboard
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Berhasil memilih sebagai Organisasi'),
@@ -59,8 +79,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               duration: Duration(seconds: 2),
             ),
           );
-          
-          // Navigate to loading screen (you can change this to organization dashboard later)
+
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(
               pageBuilder: (context, animation, secondaryAnimation) => const LoadingScreen(),
@@ -200,6 +219,46 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                           )
                         : const Text(
                             'Organisasi',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              fontFamily: 'CircularStd',
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Admin Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : () => _selectRole('admin'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8FA3CC),
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: const Color(0xFF8FA3CC).withOpacity(0.5),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                      shadowColor: Colors.transparent,
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text(
+                            'Admin',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
