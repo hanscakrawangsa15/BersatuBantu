@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
 import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
@@ -200,7 +201,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } else if (hour >= 15 && hour < 18) {
       return 'Selamat sore,';
     } else {
-      return 'Selamat malam, ';
+      return 'Selamat malam,';
+    }
+  }
+
+  void _onNavTap(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    
+    // TODO: Navigate to different screens based on index
+    // 0: Beranda (current screen)
+    // 1: Donasi screen
+    // 2: Aksi screen
+    // 3: Profil screen
+    
+    switch (index) {
+      case 0:
+        // Already on Beranda, do nothing
+        break;
+      case 1:
+        // TODO: Navigate to Donasi screen
+        print('[Dashboard] Navigate to Donasi');
+        // Navigator.push(context, MaterialPageRoute(builder: (context) => DonasiScreen()));
+        break;
+      case 2:
+        // TODO: Navigate to Aksi screen
+        print('[Dashboard] Navigate to Aksi');
+        // Navigator.push(context, MaterialPageRoute(builder: (context) => AksiScreen()));
+        break;
+      case 3:
+        // TODO: Navigate to Profil screen
+        print('[Dashboard] Navigate to Profil');
+        // Navigator.push(context, MaterialPageRoute(builder: (context) => ProfilScreen()));
+        break;
     }
   }
 
@@ -222,7 +256,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: _isLoadingUser
                         ? Row(
                             children: [
-                              SizedBox(
+                              const SizedBox(
                                 height: 16,
                                 width: 16,
                                 child: CircularProgressIndicator(
@@ -605,72 +639,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            // Bottom Navigation
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildNavItem(Icons.home_rounded, 'Beranda', 0),
-                      _buildNavItem(Icons.favorite_border_rounded, 'Favorit', 1),
-                      _buildNavItem(Icons.grid_view_rounded, 'Kategori', 2),
-                      _buildNavItem(Icons.person_outline_rounded, 'Profil', 3),
-                    ],
-                  ),
-                ),
-              ),
+            // Bottom Navigation - Using BottomNavBar widget
+            BottomNavBar(
+              currentIndex: _selectedIndex,
+              onTap: _onNavTap,
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, int index) {
-    final isSelected = _selectedIndex == index;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedIndex = index;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF8FA3CC) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : Colors.grey[600],
-              size: 24,
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'CircularStd',
-                ),
-              ),
-            ],
           ],
         ),
       ),
