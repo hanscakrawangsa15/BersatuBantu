@@ -19,6 +19,7 @@ dependencies:
   provider: ^6.0.5
   crypto: ^3.0.3
   uuid: ^4.5.2
+  flutter_dotenv: ^5.0.2
 
 dev_dependencies:
   flutter_test:
@@ -31,7 +32,7 @@ flutter:
   # Assets untuk logo dan ilustrasi
   assets:
     - assets/bersatubantu.png
-  
+    - .env
   # Fonts configuration
   fonts:
     - family: CircularStd

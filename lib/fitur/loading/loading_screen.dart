@@ -42,9 +42,10 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
     // Start animation only once
     _animationController.forward();
 
-    // Navigate to dashboard after 15 seconds
-    Future.delayed(const Duration(seconds: 10), () {
+    // Navigate to dashboard after 3 seconds
+    Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
+        print('[LoadingScreen] Navigating to DashboardScreen');
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) => const DashboardScreen(),

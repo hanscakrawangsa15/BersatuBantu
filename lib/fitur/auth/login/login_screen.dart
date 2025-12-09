@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:bersatubantu/fitur/auth/register/register_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/pilihrole/role_selection_screen.dart';
+import 'package:bersatubantu/services/debug_auth_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -79,17 +80,13 @@ class _LoginScreenState extends State<LoginScreen> {
       // Get user profile from database
       final profileResponse = await supabase
           .from('profiles')
-          .select('id, full_name, role')
+          .select('id, full_name, role, email')
           .eq('id', response.user!.id)
           .maybeSingle();
 
       print('[Login] Profile response: $profileResponse');
-      print('[Login] Profile response type: ${profileResponse.runtimeType}');
 
-      if (!mounted) {
-        print('[Login] Widget not mounted, returning');
-        return;
-      }
+      if (!mounted) return;
 
       if (profileResponse == null) {
         // Profile not found, create one
@@ -98,7 +95,9 @@ class _LoginScreenState extends State<LoginScreen> {
           await supabase.from('profiles').insert({
             'id': response.user!.id,
             'email': _emailController.text.trim(),
-            'full_name': _emailController.text.trim().split('@')[0],
+            'full_name': response.user!.userMetadata?['full_name'] ?? 
+                        _emailController.text.trim().split('@')[0],
+            'role': null,
           });
           print('[Login] New profile created successfully');
         } catch (e) {
@@ -117,19 +116,28 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         // Profile exists, check if user has selected role
         final userRole = profileResponse['role'];
-        print('[Login] User role value: "$userRole"');
+        print('[Login] User role: "$userRole"');
         print('[Login] User role type: ${userRole.runtimeType}');
-        print('[Login] User role is null: ${userRole == null}');
-        print('[Login] User role isEmpty: ${(userRole as String?)?.isEmpty ?? "N/A"}');
         
-        // Check if role is null or empty
+        // Check if role is null, empty, or 'null' string
         final roleIsEmpty = userRole == null || 
-                           (userRole is String && userRole.isEmpty);
+                           userRole.toString().trim().isEmpty ||
+                           userRole.toString().toLowerCase() == 'null';
+        
+        print('[Login] Role is empty: $roleIsEmpty');
         
         if (roleIsEmpty) {
           // Navigate to role selection if role not set
-          print('[Login] Role is empty, navigating to role selection');
+          print('[Login] No role found, navigating to role selection');
           if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Silakan pilih peran Anda'),
+                backgroundColor: Colors.blue,
+                duration: Duration(seconds: 2),
+              ),
+            );
+            
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
                 builder: (context) => RoleSelectionScreen(userId: response.user!.id),
@@ -137,22 +145,24 @@ class _LoginScreenState extends State<LoginScreen> {
             );
           }
         } else {
-          // Role already set, show success message
-          print('[Login] Role found: $userRole, showing success message');
+          // Role already set, navigate directly to loading screen
+          print('[Login] Role found: $userRole, showing success and navigating to loading screen');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Login berhasil!'),
+              SnackBar(
+                content: Text('Selamat datang kembali, ${profileResponse['full_name']}!'),
                 backgroundColor: Colors.green,
-                duration: Duration(seconds: 2),
+                duration: const Duration(seconds: 2),
               ),
             );
             
-            // TODO: Navigate to home screen based on role
-            print('[Login] TODO: Navigate to dashboard based on role: $userRole');
-            // Navigator.of(context).pushReplacement(
-            //   MaterialPageRoute(builder: (context) => const HomeScreen()),
-            // );
+            // Navigate to loading screen (import at top: import 'package:bersatubantu/fitur/loading/loading_screen.dart';)
+            // For now, using role selection which will redirect to loading
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => RoleSelectionScreen(userId: response.user!.id),
+              ),
+            );
           }
         }
       }
@@ -164,12 +174,12 @@ class _LoginScreenState extends State<LoginScreen> {
         
         if (e.message.contains('Invalid login credentials')) {
           errorMessage = 'Email atau password salah';
-        } else if (e.message.contains('User not found')) {
-          errorMessage = 'Email tidak terdaftar';
         } else if (e.message.contains('Email not confirmed')) {
-          errorMessage = 'Email belum dikonfirmasi';
+          errorMessage = 'Email belum dikonfirmasi. Silakan cek email Anda.';
+        } else if (e.message.contains('User not found')) {
+          errorMessage = 'Akun tidak ditemukan. Silakan daftar terlebih dahulu.';
         } else {
-          errorMessage = 'Login gagal: ${e.message}';
+          errorMessage = 'Email atau password salah';
         }
         
         ScaffoldMessenger.of(context).showSnackBar(
@@ -229,6 +239,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Debug Button (Hidden in top right)
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: IconButton(
+                          icon: const Icon(Icons.bug_report, size: 20),
+                          color: Colors.grey[400],
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const DebugAuthScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      
                       // Header
                       const Text(
                         'Masuk',
