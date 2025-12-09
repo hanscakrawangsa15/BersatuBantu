@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
 import 'package:bersatubantu/services/supabase.dart' as app_supabase;
+import 'package:bersatubantu/services/debug_auth_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
   
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // Initialize Supabase
+  // Initialize Supabase dengan environment variables
   await Supabase.initialize(
-    url: 'https://kkacuemmgvgtyhgmxidy.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrYWN1ZW1tZ3ZndHloZ214aWR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxMzkyODUsImV4cCI6MjA3OTcxNTI4NX0.OQAkmObcWSQkXaPzLoMJ7sqooSC72MbKSYqe_KsRkD0',
+    url: dotenv.env['SUPABASE_URL'] ?? '',
+    anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
 
   runApp(const MyApp());
