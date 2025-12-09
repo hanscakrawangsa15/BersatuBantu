@@ -1,21 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'core/theme/app_theme.dart';
-import 'features/splash/splash_screen.dart';
-import 'fitur/auth/login/login_screen.dart';
-import 'core/app-route.dart';
+import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
+import 'package:bersatubantu/services/supabase.dart' as app_supabase;
+import 'package:bersatubantu/services/debug_auth_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
+  
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
-  // Initialize Supabase
+  // Initialize Supabase dengan environment variables
   await Supabase.initialize(
-    url: 'https://kkacuemmgvgtyhgmxidy.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrYWN1ZW1tZ3ZndHloZ214aWR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxMzkyODUsImV4cCI6MjA3OTcxNTI4NX0.OQAkmObcWSQkXaPzLoMJ7sqooSC72MbKSYqe_KsRkD0',
+    url: dotenv.env['SUPABASE_URL'] ?? '',
+    anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
 
   runApp(const MyApp());
 }
+
+// Global Supabase client
+final supabase = Supabase.instance.client;
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -24,16 +36,19 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'BersatuBantu',
-      theme: AppTheme.lightTheme,
-      home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
-      routes: {
-        '/login': (context) => const LoginScreen(),
-        '/auth': (context) => const LoginScreen(),
-      },
+      theme: ThemeData(
+        primaryColor: const Color(0xFF768BBD),
+        scaffoldBackgroundColor: Colors.white,
+        fontFamily: 'CircularStd',
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF768BBD),
+          primary: const Color(0xFF768BBD),
+          secondary: const Color(0xFF364057),
+        ),
+        useMaterial3: true,
+      ),
+      home: const SplashScreen(),
     );
   }
 }
-
-// Global accessor untuk Supabase client
-final supabase = Supabase.instance.client;

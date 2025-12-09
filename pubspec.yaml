@@ -15,6 +15,11 @@ dependencies:
   google_fonts: ^6.1.0  # Untuk custom fonts
   flutter_svg: ^2.0.9   # Jika butuh SVG
   shared_preferences: ^2.2.2  # Untuk menyimpan status onboarding
+  file_picker: ^5.2.6
+  provider: ^6.0.5
+  crypto: ^3.0.3
+  uuid: ^4.5.2
+  flutter_dotenv: ^5.0.2
 
 dev_dependencies:
   flutter_test:
@@ -24,6 +29,15 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   
-  # Tambahkan assets untuk logo dan ilustrasi
+  # Assets untuk logo dan ilustrasi
   assets:
     - assets/bersatubantu.png
+    - .env
+  # Fonts configuration
+  fonts:
+    - family: CircularStd
+      fonts:
+        - asset: assets/circular-std-medium-500.ttf
+          weight: 500
+        - asset: assets/circular-std-medium-500.ttf
+          weight: 700
