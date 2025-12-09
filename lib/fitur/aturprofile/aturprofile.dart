@@ -1,6 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
+// ------------------------------------------------------------------
+// 1. MAIN & INISIALISASI
+// ------------------------------------------------------------------
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Pastikan URL & KEY Supabase kamu sudah benar
+  await Supabase.initialize(
+    url: 'https://PROJECT-ID.supabase.co',
+    anonKey: 'PUBLIC-ANON-KEY',
+  );
+
   runApp(const MyApp());
 }
 
@@ -11,65 +23,85 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Jastip Profil UI',
+      title: 'BersatuBantu',
       theme: ThemeData(
-        primarySwatch: Colors.indigo,
+        primaryColor: const Color(0xFF768BBD),
+        colorScheme: ColorScheme.fromSwatch().copyWith(
+          primary: const Color(0xFF768BBD),
+          secondary: const Color(0xFF768BBD),
+        ),
         scaffoldBackgroundColor: Colors.white,
-        fontFamily: 'Poppins', // Pastikan font sudah ditambahkan di pubspec.yaml jika ingin font custom
+        fontFamily: 'Poppins', 
       ),
-      home: const MainContainer(),
+      // Langsung masuk ke ProfileScreen (Tanpa Login Screen)
+      home: const ProfileScreen(),
     );
   }
 }
 
-// Wrapper untuk Bottom Navigation Bar (Layar 1)
-class MainContainer extends StatefulWidget {
-  const MainContainer({super.key});
-
-  @override
-  State<MainContainer> createState() => _MainContainerState();
-}
-
-class _MainContainerState extends State<MainContainer> {
-  int _selectedIndex = 3; // Default ke tab Profil
-
-  final List<Widget> _pages = [
-    const Center(child: Text("Home Page")),
-    const Center(child: Text("Orders Page")),
-    const Center(child: Text("Settings Page")),
-    const ProfileScreen(), // Halaman Profil kita
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF4A55A2),
-        unselectedItemColor: Colors.grey,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.card_giftcard), label: 'Jastip'),
-          BottomNavigationBarItem(icon: Icon(Icons.grid_view), label: 'Menu'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
-        ],
-      ),
-    );
-  }
-}
-
-// --- SCREEN 1: HALAMAN PROFIL ---
-class ProfileScreen extends StatelessWidget {
+// ------------------------------------------------------------------
+// 2. HALAMAN PROFIL (REAL DB CONNECTION)
+// ------------------------------------------------------------------
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  // Variabel inisialisasi kosong/loading (Bukan Dummy)
+  String _name = "Memuat..."; 
+  String _email = "Memuat...";
+  
+  final supabase = Supabase.instance.client;
+
+  @override
+  void initState() {
+    super.initState();
+    _getProfileData();
+  }
+
+  // MURNI AMBIL DARI DATABASE
+  Future<void> _getProfileData() async {
+    try {
+      final user = supabase.auth.currentUser;
+      
+      if (user == null) {
+        // Jika sesi login hilang/belum login
+        if (mounted) {
+          setState(() {
+            _name = "Belum Login";
+            _email = "-";
+          });
+        }
+        return;
+      }
+
+      // Query Real ke Supabase
+      final data = await supabase
+          .from('profiles')
+          .select('full_name, email') // Sesuaikan nama kolom di DB kamu
+          .eq('id', user.id)
+          .single();
+
+      if (mounted) {
+        setState(() {
+          _name = data['full_name'] ?? "Tanpa Nama";
+          _email = data['email'] ?? user.email ?? "-";
+        });
+      }
+    } catch (e) {
+      // Jika terjadi error koneksi atau data tidak ditemukan
+      print("Error Fetching Data: $e");
+      if (mounted) {
+        setState(() {
+          _name = "Error Memuat";
+          _email = "-";
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,52 +110,67 @@ class ProfileScreen extends StatelessWidget {
         title: const Text("Atur Profil", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
-        centerTitle: false,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            // Header Profil
+            // --- HEADER PROFIL ---
             Row(
               children: [
                 const CircleAvatar(
                   radius: 35,
-                  backgroundColor: Colors.grey,
+                  backgroundColor: Color(0xFF768BBD),
                   child: Icon(Icons.person, size: 40, color: Colors.white),
-                  // backgroundImage: AssetImage('assets/profile.jpg'), // Gunakan ini jika ada gambar
                 ),
                 const SizedBox(width: 15),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text("Bhaskara", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text("bhas111@gmail.com", style: TextStyle(color: Colors.grey)),
+                  children: [
+                    Text(_name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(_email, style: const TextStyle(color: Colors.grey)),
                   ],
                 ),
                 const Spacer(),
                 OutlinedButton(
-                  onPressed: () {
-                    Navigator.push(
+                  onPressed: () async {
+                    // Pindah ke halaman Edit (Tanpa kirim data dummy)
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => const EditProfileScreen()),
                     );
+                    // Refresh data DB setelah kembali
+                    _getProfileData(); 
                   },
                   style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF768BBD)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text("Edit Profil", style: TextStyle(color: Colors.black54)),
+                  child: const Text("Edit Profil", style: TextStyle(color: Color(0xFF768BBD))),
                 )
               ],
             ),
             const SizedBox(height: 30),
-
-            // Placeholder Menu Items (Kotak Abu-abu)
+            
+            // --- MENU LAINNYA ---
             _buildPlaceholderItem(),
             _buildPlaceholderItem(),
             _buildPlaceholderItem(),
           ],
         ),
+      ),
+      // Bottom Navigation Bar
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 3,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: const Color(0xFF768BBD),
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.handshake), label: 'Bantu'),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Riwayat'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+        ],
       ),
     );
   }
@@ -132,15 +179,14 @@ class ProfileScreen extends StatelessWidget {
     return Container(
       height: 80,
       margin: const EdgeInsets.only(bottom: 15),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
     );
   }
 }
 
-// --- SCREEN 2 & 3: EDIT PROFIL & EXCEPTION ---
+// ------------------------------------------------------------------
+// 3. EDIT PROFIL (REAL DB UPDATE)
+// ------------------------------------------------------------------
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -149,52 +195,115 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  // Controller untuk form (agar data bisa diambil)
-  final TextEditingController _firstNameController = TextEditingController(text: "Bhaskara");
-  final TextEditingController _lastNameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController(text: "bhas111@gmail.com");
-  final TextEditingController _phoneController = TextEditingController();
+  // Controller mulai kosong, nanti diisi dari DB
+  final _fullNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  
+  final supabase = Supabase.instance.client;
+  bool _isLoading = false;
 
-  // Fungsi untuk menampilkan Dialog Error (Screen 3)
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentData();
+  }
+
+  @override
+  void dispose() {
+    _fullNameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  // AMBIL DATA LAMA DARI DB UNTUK DIISI KE FORM
+  Future<void> _loadCurrentData() async {
+    final user = supabase.auth.currentUser;
+    if (user != null) {
+      try {
+        final data = await supabase
+            .from('profiles')
+            .select()
+            .eq('id', user.id)
+            .single();
+
+        setState(() {
+          _fullNameController.text = data['full_name'] ?? '';
+          _emailController.text = data['email'] ?? user.email ?? '';
+          _phoneController.text = data['phone'] ?? '';
+        });
+      } catch (e) {
+        // Handle jika data tidak ada
+      }
+    }
+  }
+
+  // UPDATE KE DATABASE
+  Future<void> _updateProfile() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) throw "User not logged in";
+
+      // Kirim Data Asli ke Supabase
+      await supabase.from('profiles').upsert({
+        'id': user.id,
+        'full_name': _fullNameController.text,
+        'email': _emailController.text,
+        'phone': _phoneController.text,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      if (mounted) Navigator.pop(context); // Kembali ke Profil jika sukses
+
+    } catch (e) {
+      // Jika Gagal (Internet mati / Error DB)
+      _showErrorDialog();
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // Dialog Error Exception Flow
   void _showErrorDialog() {
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.black, width: 2),
-                ),
-                child: const Icon(Icons.priority_high, size: 30, color: Colors.black),
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.black, width: 2),
               ),
-              const SizedBox(height: 15),
-              const Text(
-                "Gagal Menyimpan Perubahan",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4A55A2), // Warna biru tua sesuai desain
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Oke", style: TextStyle(color: Colors.white)),
+              child: const Icon(Icons.priority_high, size: 30, color: Colors.black),
+            ),
+            const SizedBox(height: 15),
+            const Text(
+              "Gagal Menyimpan Perubahan",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF768BBD),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-              )
-            ],
-          ),
-        );
-      },
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Oke", style: TextStyle(color: Colors.white)),
+              ),
+            )
+          ],
+        ),
+      ),
     );
   }
 
@@ -203,10 +312,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black, size: 20),
+          icon: const Icon(Icons.arrow_back_ios, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text("Edit Profil", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: const Text("Edit Profil", style: TextStyle(fontWeight: FontWeight.bold)),
+        foregroundColor: Colors.black,
         backgroundColor: Colors.white,
         elevation: 0,
       ),
@@ -218,51 +328,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Bagian Foto Profil
+                  // --- FOTO PROFIL ---
                   Row(
                     children: [
                       const CircleAvatar(
                         radius: 35,
-                        backgroundColor: Colors.grey,
+                        backgroundColor: Color(0xFF768BBD),
                         child: Icon(Icons.person, size: 40, color: Colors.white),
                       ),
                       const SizedBox(width: 15),
-                      Expanded(
-                        child: Row(
-                          children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
                             ElevatedButton(
-                              onPressed: () {},
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey[200],
-                                elevation: 0,
-                                foregroundColor: Colors.black,
-                              ),
-                              child: const Text("Upload Foto", style: TextStyle(fontSize: 12)),
+                              onPressed: (){}, 
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[200], elevation: 0, foregroundColor: Colors.black), 
+                              child: const Text("Upload Foto", style: TextStyle(fontSize: 12))
                             ),
                             const SizedBox(width: 8),
                             ElevatedButton(
-                              onPressed: () {},
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey[200],
-                                elevation: 0,
-                                foregroundColor: Colors.black,
-                              ),
-                              child: const Text("Ambil Foto", style: TextStyle(fontSize: 12)),
+                              onPressed: (){}, 
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[200], elevation: 0, foregroundColor: Colors.black), 
+                              child: const Text("Ambil Foto", style: TextStyle(fontSize: 12))
                             ),
-                          ],
-                        ),
+                          ])
+                        ],
                       )
                     ],
                   ),
                   const SizedBox(height: 30),
 
-                  // Form Inputs
-                  _buildLabel("Nama Depan"),
-                  _buildTextField("Nama Depan", controller: _firstNameController),
-                  const SizedBox(height: 15),
-
-                  _buildLabel("Nama Belakang"),
-                  _buildTextField("Nama Belakang", controller: _lastNameController),
+                  // --- FORM INPUT ---
+                  _buildLabel("Nama Lengkap"),
+                  _buildTextField("Masukkan nama lengkap", controller: _fullNameController),
                   const SizedBox(height: 15),
 
                   _buildLabel("Email"),
@@ -270,13 +369,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 15),
 
                   _buildLabel("No. Telepon"),
-                  _buildTextField("+62  ---", controller: _phoneController, inputType: TextInputType.phone),
+                  _buildTextField("+62 ---", controller: _phoneController, inputType: TextInputType.phone),
                 ],
               ),
             ),
           ),
           
-          // Tombol Aksi Bawah (Batal / Simpan)
+          // --- TOMBOL AKSI ---
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -299,13 +398,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 const SizedBox(width: 15),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: _showErrorDialog, // Trigger Dialog Exception Flow
+                    onPressed: _isLoading ? null : _updateProfile,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4A55A2),
+                      backgroundColor: const Color(0xFF768BBD),
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: const Text("Simpan", style: TextStyle(color: Colors.white)),
+                    child: _isLoading 
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text("Simpan", style: TextStyle(color: Colors.white)),
                   ),
                 ),
               ],
@@ -316,18 +417,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  // Helper Widget untuk Label Form
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(
-        text,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
-      ),
+      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
     );
   }
 
-  // Helper Widget untuk Text Field
   Widget _buildTextField(String hint, {TextEditingController? controller, TextInputType inputType = TextInputType.text}) {
     return TextFormField(
       controller: controller,
@@ -336,14 +432,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFF4A55A2)),
-        ),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF768BBD))),
         filled: true,
         fillColor: Colors.white,
       ),
