@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:bersatubantu/widgets/bottom_nav_bar.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
+import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -9,8 +11,13 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  final supabase = Supabase.instance.client;
+  late final StreamSubscription<AuthState> _authSubscription;
+  
   int _selectedIndex = 0;
   String _selectedCategory = 'Semua';
+  String _userName = '';
+  bool _isLoadingUser = true;
 
   final List<String> _categories = [
     'Semua',
@@ -21,14 +28,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   final List<Map<String, dynamic>> _featuredNews = [
     {
-      'title': 'KPK Sebut Kasus Bansos Presiden....',
+      'title': 'KPK Tangkap Bupati Lampung Selatan',
       'date': '29 Juni 2024',
       'time': '10:18 WIB',
       'source': 'Kompas.com',
       'image': 'assets/news1.jpg',
     },
     {
-      'title': 'Pena Kemi Dipu',
+      'title': 'Pena Kemi',
       'date': '30 Juni 2024',
       'source': 'Media',
       'image': 'assets/news2.jpg',
@@ -37,12 +44,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   final List<Map<String, dynamic>> _popularNews = [
     {
-      'title': 'Banjir Hingga Longsor Landa Lampung Kabupaten Solahumi',
+      'title': 'Banjir Hingga Longsor Landa',
       'source': 'Detik.com',
       'image': 'assets/popular1.jpg',
     },
     {
-      'title': 'Bencana Tanah Terejng Diungkapkan masih Indonesia Hujan Terjun',
+      'title': 'Bencana Tanah Terejng Diungkapkan',
       'source': 'Detik.com',
       'image': 'assets/popular2.jpg',
     },
@@ -52,6 +59,184 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'image': 'assets/popular3.jpg',
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Listen to auth state changes
+    _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
+      final session = data.session;
+      if (session != null) {
+        print('[Dashboard] Auth state changed - User is logged in');
+        _loadUserData();
+      } else {
+        print('[Dashboard] Auth state changed - User is logged out');
+        setState(() {
+          _userName = 'Pengguna';
+          _isLoadingUser = false;
+        });
+      }
+    });
+    
+    // Initial load
+    _loadUserData();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadUserData() async {
+    setState(() {
+      _isLoadingUser = true;
+    });
+
+    try {
+      // Get current user ID from auth
+      final user = supabase.auth.currentUser;
+      
+      if (user == null) {
+        print('[Dashboard] No authenticated user found');
+        setState(() {
+          _userName = 'Pengguna';
+          _isLoadingUser = false;
+        });
+        return;
+      }
+
+      print('[Dashboard] Current user ID: ${user.id}');
+      print('[Dashboard] User email: ${user.email}');
+
+      // Try to get full_name from user metadata first (if stored during signup)
+      if (user.userMetadata?['full_name'] != null) {
+        final metadataName = user.userMetadata!['full_name'] as String;
+        if (metadataName.isNotEmpty) {
+          print('[Dashboard] Found name in metadata: $metadataName');
+          setState(() {
+            _userName = metadataName;
+            _isLoadingUser = false;
+          });
+          return;
+        }
+      }
+
+      // Query profiles table with the user ID
+      print('[Dashboard] Querying profiles table for user ID: ${user.id}');
+      
+      final response = await supabase
+          .from('profiles')
+          .select('full_name, email, id')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      print('[Dashboard] Query response: $response');
+
+      if (response != null) {
+        print('[Dashboard] Profile found in database');
+        
+        final fullName = response['full_name'];
+        print('[Dashboard] Full name value: "$fullName" (type: ${fullName.runtimeType})');
+        
+        if (fullName != null) {
+          final nameString = fullName.toString().trim();
+          print('[Dashboard] After trim: "$nameString"');
+          
+          if (nameString.isNotEmpty) {
+            setState(() {
+              _userName = nameString;
+              _isLoadingUser = false;
+            });
+            print('[Dashboard] Successfully loaded user name: $_userName');
+            return;
+          }
+        }
+        
+        // Fallback: Try to get from email
+        print('[Dashboard] full_name is null or empty, using email fallback');
+        final email = response['email'] ?? user.email;
+        final nameFromEmail = email?.split('@')[0] ?? 'Pengguna';
+        setState(() {
+          _userName = nameFromEmail;
+          _isLoadingUser = false;
+        });
+        print('[Dashboard] Using email prefix: $_userName');
+      } else {
+        // Profile not found in database
+        print('[Dashboard] No profile found in database for user ID: ${user.id}');
+        
+        final email = user.email;
+        final nameFromEmail = email?.split('@')[0] ?? 'Pengguna';
+        setState(() {
+          _userName = nameFromEmail;
+          _isLoadingUser = false;
+        });
+        print('[Dashboard] Using email prefix as name: $_userName');
+      }
+    } catch (e, stackTrace) {
+      print('[Dashboard] Error loading user data: $e');
+      print('[Dashboard] Stack trace: $stackTrace');
+      
+      // Fallback to email prefix
+      final user = supabase.auth.currentUser;
+      final email = user?.email;
+      final nameFromEmail = email?.split('@')[0] ?? 'Pengguna';
+      
+      setState(() {
+        _userName = nameFromEmail;
+        _isLoadingUser = false;
+      });
+    }
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    
+    if (hour >= 5 && hour < 11) {
+      return 'Selamat pagi,';
+    } else if (hour >= 11 && hour < 15) {
+      return 'Selamat siang,';
+    } else if (hour >= 15 && hour < 18) {
+      return 'Selamat sore,';
+    } else {
+      return 'Selamat malam,';
+    }
+  }
+
+  void _onNavTap(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    
+    // TODO: Navigate to different screens based on index
+    // 0: Beranda (current screen)
+    // 1: Donasi screen
+    // 2: Aksi screen
+    // 3: Profil screen
+    
+    switch (index) {
+      case 0:
+        // Already on Beranda, do nothing
+        break;
+      case 1:
+        // TODO: Navigate to Donasi screen
+        print('[Dashboard] Navigate to Donasi');
+        // Navigator.push(context, MaterialPageRoute(builder: (context) => DonasiScreen()));
+        break;
+      case 2:
+        // TODO: Navigate to Aksi screen
+        print('[Dashboard] Navigate to Aksi');
+        // Navigator.push(context, MaterialPageRoute(builder: (context) => AksiScreen()));
+        break;
+      case 3:
+        // TODO: Navigate to Profil screen
+        print('[Dashboard] Navigate to Profil');
+        // Navigator.push(context, MaterialPageRoute(builder: (context) => ProfilScreen()));
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,16 +250,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Laman Awal Berita',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontFamily: 'CircularStd',
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Expanded(
+                    child: _isLoadingUser
+                        ? Row(
+                            children: [
+                              const SizedBox(
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Memuat...',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontFamily: 'CircularStd',
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _getGreeting(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontFamily: 'CircularStd',
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _userName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 32,
+                                  fontFamily: 'CircularStd',
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 2,
+                              ),
+                            ],
+                          ),
                   ),
+                  const SizedBox(width: 12),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -85,7 +314,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Text(
-                      'Berlaku',
+                      'Beritaku',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -410,15 +639,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            // Bottom Navigation
+            // Bottom Navigation - Using BottomNavBar widget
             BottomNavBar(
               currentIndex: _selectedIndex,
-              onTap: (index) {
-                setState(() {
-                  _selectedIndex = index;
-                });
-                // TODO: Navigate to different screens based on index
-              },
+              onTap: _onNavTap,
             ),
           ],
         ),
