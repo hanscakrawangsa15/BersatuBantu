@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
+import 'package:bersatubantu/fitur/donasi/donasi_screen.dart'; // Import donasi screen
 import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
@@ -206,24 +207,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _onNavTap(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    
-    // TODO: Navigate to different screens based on index
-    // 0: Beranda (current screen)
-    // 1: Donasi screen
-    // 2: Aksi screen
-    // 3: Profil screen
+    if (index == _selectedIndex) return;
     
     switch (index) {
       case 0:
         // Already on Beranda, do nothing
         break;
       case 1:
-        // TODO: Navigate to Donasi screen
+        // Navigate to Donasi screen
         print('[Dashboard] Navigate to Donasi');
-        // Navigator.push(context, MaterialPageRoute(builder: (context) => DonasiScreen()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const DonasiScreen()),
+        );
         break;
       case 2:
         // TODO: Navigate to Aksi screen
@@ -500,7 +496,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                               ),
                                               if (news['time'] != null) ...[
                                                 Text(
-                                                  ' — ${news['time']}',
+                                                  ' – ${news['time']}',
                                                   style: TextStyle(
                                                     color: Colors.white.withOpacity(0.8),
                                                     fontSize: 11,
