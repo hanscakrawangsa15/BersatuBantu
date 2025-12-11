@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/auth/login/login_screen.dart';
+import 'package:bersatubantu/fitur/auth/login/organization_login_screen.dart';
 import 'package:bersatubantu/fitur/loading/loading_screen.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
@@ -27,7 +28,29 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     try {
       final userId = widget.userId;
 
-      // Jika belum login (userId null), langsung arahkan ke LoginScreen
+      // Jika pilih Organisasi, ke login screen dulu
+      if (role == 'volunteer') {
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => const OrganizationLoginScreen(),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                const begin = Offset(1.0, 0.0);
+                const end = Offset.zero;
+                const curve = Curves.easeInOut;
+                var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                var offsetAnimation = animation.drive(tween);
+                return SlideTransition(position: offsetAnimation, child: child);
+              },
+              transitionDuration: const Duration(milliseconds: 400),
+            ),
+          );
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Jika belum login (userId null) untuk role lain, arahkan ke LoginScreen
       if (userId == null) {
         if (mounted) {
           Navigator.of(context).pushReplacement(
@@ -71,15 +94,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               transitionDuration: const Duration(milliseconds: 400),
             ),
           );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Berhasil memilih sebagai Organisasi'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-
+        } else if (role == 'admin') {
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(
               pageBuilder: (context, animation, secondaryAnimation) => const LoadingScreen(),
