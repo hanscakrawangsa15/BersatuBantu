@@ -11,6 +11,17 @@ class SuccessScreen extends StatefulWidget {
 
 class _SuccessScreenState extends State<SuccessScreen> {
   @override
+  void initState() {
+    super.initState();
+    // Automatically navigate back to organization login after 3 seconds
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/organization_login');
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Consumer<OrganizationVerificationProvider>(
       builder: (context, provider, _) => Scaffold(
@@ -96,39 +107,47 @@ class _SuccessScreenState extends State<SuccessScreen> {
                           ),
                           textAlign: TextAlign.center,
                         ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Pengajuan verifikasi Anda telah kami terima.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Admin akan segera memeriksa dokumen Anda.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ],
                     ),
                   ),
                 ),
-                // Button Masuk
+                // Loading indicator
                 Padding(
                   padding: const EdgeInsets.all(24),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                  child: Column(
+                    children: [
+                      const CircularProgressIndicator(
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
-                      onPressed: () {
-                        // Navigate ke home/dashboard
-                        Navigator.of(context).pushNamedAndRemoveUntil(
-                          '/home',
-                          (route) => false,
-                        );
-                      },
-                      child: const Text(
-                        'Masuk',
+                      const SizedBox(height: 16),
+                      Text(
+                        'Membawa Anda ke halaman login organisasi...',
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF768BBD),
+                          fontSize: 12,
+                          color: Colors.white.withOpacity(0.8),
                         ),
+                        textAlign: TextAlign.center,
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ],

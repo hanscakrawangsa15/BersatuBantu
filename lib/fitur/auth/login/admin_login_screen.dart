@@ -1,83 +1,51 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:bersatubantu/fitur/verifikasi_organisasi/screens/verification_flow.dart';
-import 'package:bersatubantu/fitur/verifikasi_organisasi/screens/waiting_verification_screen.dart';
+import 'package:bersatubantu/fitur/pilihrole/role_selection_screen.dart';
+import 'admin_dashboard_screen.dart';
 
-class OrganizationLoginScreen extends StatefulWidget {
-  const OrganizationLoginScreen({super.key});
+class AdminLoginScreen extends StatefulWidget {
+  const AdminLoginScreen({super.key});
 
   @override
-  State<OrganizationLoginScreen> createState() => _OrganizationLoginScreenState();
+  State<AdminLoginScreen> createState() => _AdminLoginScreenState();
 }
 
-class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
-  final _emailController = TextEditingController();
+class _AdminLoginScreenState extends State<AdminLoginScreen> {
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  // Hardcoded credentials
+  static const String ADMIN_USERNAME = '4dmin';
+  static const String ADMIN_PASSWORD = '4dmin123!';
+
   @override
   void dispose() {
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      _showErrorDialog('Email dan password harus diisi');
+    if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
+      _showErrorDialog('Username dan password harus diisi');
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      final supabase = Supabase.instance.client;
+      // Delay untuk simulasi proses login
+      await Future.delayed(const Duration(milliseconds: 800));
 
-      // First, get the organization from organizations table using email
-      final orgResponse = await supabase
-          .from('organizations')
-          .select('id, name, email')
-          .eq('email', _emailController.text)
-          .maybeSingle();
-
-      if (orgResponse == null) {
-        if (mounted) {
-          _showErrorDialog('Organisasi tidak ditemukan. Silakan daftar terlebih dahulu.');
-        }
-        return;
-      }
-
-      final orgId = orgResponse['id'].toString();
-      final orgName = orgResponse['name'] as String?;
-
-      // Then, check verification status in organization_verifications table
-      final verificationResponse = await supabase
-          .from('organization_verifications')
-          .select('status')
-          .eq('organization_id', orgId)
-          .maybeSingle();
-
-      if (verificationResponse == null) {
-        if (mounted) {
-          _showErrorDialog('Verifikasi organisasi tidak ditemukan. Silakan selesaikan proses pendaftaran.');
-        }
-        return;
-      }
-
-      final status = verificationResponse['status'] as String?;
-
-      // Check if organization is pending verification
-      if (status == 'pending') {
+      // Cek kredensial
+      if (_usernameController.text == ADMIN_USERNAME &&
+          _passwordController.text == ADMIN_PASSWORD) {
         if (mounted) {
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(
               pageBuilder: (context, animation, secondaryAnimation) =>
-                  WaitingVerificationScreen(
-                organizationId: orgId,
-                organizationName: orgName ?? 'Organisasi',
-              ),
+                  const AdminDashboardScreen(),
               transitionsBuilder:
                   (context, animation, secondaryAnimation, child) {
                 const begin = Offset(1.0, 0.0);
@@ -93,53 +61,10 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
             ),
           );
         }
-        return;
-      }
-
-      // Check if organization is rejected
-      if (status == 'rejected') {
+      } else {
         if (mounted) {
-          _showErrorDialog(
-            'Organisasi Anda ditolak oleh admin.\n\n'
-            'Silakan hubungi admin untuk informasi lebih lanjut atau coba daftar ulang dengan dokumen yang lebih lengkap.',
-          );
+          _showErrorDialog('Username atau password salah');
         }
-        return;
-      }
-
-      // Check if organization is approved
-      if (status != 'approved') {
-        if (mounted) {
-          _showErrorDialog(
-            'Organisasi Anda belum diverifikasi oleh admin.\n'
-            'Status: $status\n\n'
-            'Silakan tunggu proses verifikasi selesai.',
-          );
-        }
-        return;
-      }
-
-      // Organization is approved, allow login
-      // TODO: Create actual user in auth if not exists, or link to existing user
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Selamat datang $orgName!',
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        // Navigate to home/dashboard
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/home',
-          (route) => false,
-        );
-      }
-    } on PostgrestException catch (e) {
-      if (mounted) {
-        _showErrorDialog('Database error: ${e.message}');
       }
     } catch (e) {
       if (mounted) {
@@ -156,7 +81,7 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Gagal Login'),
+        title: const Text('Login Gagal'),
         content: Text(message),
         actions: [
           TextButton(
@@ -183,7 +108,7 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
               child: Column(
                 children: [
                   const Text(
-                    'Through Community',
+                    'Admin Dashboard',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.white30,
@@ -192,7 +117,7 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Many People Help,\nMany People Saved',
+                    'Manage Organizations\nVerifications',
                     style: TextStyle(
                       fontSize: 24,
                       color: Colors.white30,
@@ -224,8 +149,25 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
                       // Back button
                       GestureDetector(
                         onTap: () {
-                          Navigator.of(context).popUntil(
-                            (route) => route.isFirst,
+                          Navigator.of(context).pushReplacement(
+                            PageRouteBuilder(
+                              pageBuilder: (context, animation,
+                                      secondaryAnimation) =>
+                                  const RoleSelectionScreen(),
+                              transitionsBuilder: (context, animation,
+                                  secondaryAnimation, child) {
+                                const begin = Offset(-1.0, 0.0);
+                                const end = Offset.zero;
+                                const curve = Curves.easeInOut;
+                                var tween = Tween(begin: begin, end: end)
+                                    .chain(CurveTween(curve: curve));
+                                var offsetAnimation = animation.drive(tween);
+                                return SlideTransition(
+                                    position: offsetAnimation, child: child);
+                              },
+                              transitionDuration:
+                                  const Duration(milliseconds: 400),
+                            ),
                           );
                         },
                         child: const Icon(
@@ -237,17 +179,25 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
                       const SizedBox(height: 16),
                       // Header
                       const Text(
-                        'Hi! Good People',
+                        'Admin Login',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF768BBD),
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      // Email field
+                      const SizedBox(height: 8),
                       const Text(
-                        'E-Mail Organisasi',
+                        'Masukkan kredensial admin untuk akses dashboard',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      // Username field
+                      const Text(
+                        'Username',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -256,9 +206,9 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
                       ),
                       const SizedBox(height: 8),
                       TextField(
-                        controller: _emailController,
+                        controller: _usernameController,
                         decoration: InputDecoration(
-                          hintText: 'Email organisasi Anda',
+                          hintText: 'Masukkan username',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: const BorderSide(
@@ -276,12 +226,11 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
                             vertical: 12,
                           ),
                         ),
-                        keyboardType: TextInputType.emailAddress,
                       ),
                       const SizedBox(height: 20),
                       // Password field
                       const Text(
-                        'Passwords Organisasi',
+                        'Password',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -293,7 +242,7 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
-                          hintText: 'Password',
+                          hintText: 'Masukkan password',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: const BorderSide(
@@ -325,37 +274,6 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      // Remember me & Forgot password
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Checkbox(
-                                value: false,
-                                onChanged: (_) {},
-                                activeColor: const Color(0xFF768BBD),
-                              ),
-                              const Text(
-                                'Ingat Saya',
-                                style: TextStyle(fontSize: 13),
-                              ),
-                            ],
-                          ),
-                          GestureDetector(
-                            onTap: () {},
-                            child: const Text(
-                              'Lupa Password?',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF768BBD),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                       const SizedBox(height: 24),
                       // Login button
                       SizedBox(
@@ -368,11 +286,8 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          onPressed: _isLoading
-                              ? null
-                              : () {
-                                  _handleLogin();
-                                },
+                          onPressed:
+                              _isLoading ? null : () => _handleLogin(),
                           child: _isLoading
                               ? const SizedBox(
                                   height: 20,
@@ -380,7 +295,8 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor:
-                                        AlwaysStoppedAnimation<Color>(Colors.white),
+                                        AlwaysStoppedAnimation<Color>(
+                                            Colors.white),
                                   ),
                                 )
                               : const Text(
@@ -391,39 +307,6 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
                                     color: Colors.white,
                                   ),
                                 ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Register link
-                      Center(
-                        child: RichText(
-                          text: TextSpan(
-                            text: 'Belum daftarkan Organisasimu? ',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.black54,
-                            ),
-                            children: [
-                              TextSpan(
-                                text: 'Daftar',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF768BBD),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                recognizer: TapGestureRecognizer()
-                                  ..onTap = () {
-                                    // Navigate to verification flow
-                                    Navigator.of(context).pushReplacement(
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const OrganizationVerificationFlow(),
-                                      ),
-                                    );
-                                  },
-                              ),
-                            ],
-                          ),
                         ),
                       ),
                       const SizedBox(height: 24),

@@ -72,7 +72,7 @@ class DocumentUploadService {
     }
   }
 
-  /// Upload document from bytes (untuk web)
+  /// Upload document from bytes (untuk web dan mobile)
   Future<String?> uploadDocumentFromBytes({
     required Uint8List bytes,
     required String fileName,
@@ -84,6 +84,30 @@ class DocumentUploadService {
       final uniqueFileName = '${documentType}_${timestamp}.pdf';
       final remotePath = 'org_$organizationId/$uniqueFileName';
 
+      print('[DocumentUpload] ========== START UPLOAD ==========');
+      print('[DocumentUpload] Bucket: $bucket');
+      print('[DocumentUpload] Remote path: $remotePath');
+      print('[DocumentUpload] File size: ${bytes.length} bytes');
+      print('[DocumentUpload] Organization ID: $organizationId');
+      print('[DocumentUpload] Document type: $documentType');
+      print('[DocumentUpload] File name: $fileName');
+
+      // Check if bucket exists
+      print('[DocumentUpload] Checking bucket...');
+      try {
+        await _client.storage.from(bucket).list(path: '/');
+        print('[DocumentUpload] ✅ Bucket exists and is accessible');
+      } catch (e) {
+        print('[DocumentUpload] ❌ Bucket error: $e');
+        throw Exception(
+          'Bucket "$bucket" tidak ditemukan atau tidak bisa diakses.\n'
+          'Silakan create bucket "$bucket" di Supabase Storage.\n'
+          'Error: $e'
+        );
+      }
+
+      // Upload file
+      print('[DocumentUpload] Starting uploadBinary...');
       await _client.storage
           .from(bucket)
           .uploadBinary(
@@ -95,14 +119,36 @@ class DocumentUploadService {
             ),
           );
 
+      print('[DocumentUpload] ✅ uploadBinary completed successfully');
+
+      // Get public URL
+      print('[DocumentUpload] Getting public URL...');
       final publicUrl = _client.storage
           .from(bucket)
           .getPublicUrl(remotePath);
 
+      print('[DocumentUpload] ✅ Public URL obtained: $publicUrl');
+      print('[DocumentUpload] ========== UPLOAD SUCCESS ==========');
+
       return publicUrl;
+    } on StorageException catch (e) {
+      print('[DocumentUpload] ❌ StorageException: ${e.message}');
+      print('[DocumentUpload] Status code: ${e.statusCode}');
+      
+      String errorMsg = 'Gagal upload dokumen';
+      if (e.statusCode == '404') {
+        errorMsg = 'Bucket "document_organisasi" tidak ditemukan.\n'
+            'Silakan create bucket di Supabase Storage terlebih dahulu.';
+      } else if (e.statusCode == '401' || e.statusCode == '403') {
+        errorMsg = 'Tidak ada izin untuk upload dokumen.\n'
+            'Pastikan policies sudah di-set dengan benar.';
+      }
+      
+      throw Exception(errorMsg);
     } catch (e) {
-      print('Error uploading document from bytes: $e');
-      rethrow;
+      print('[DocumentUpload] ❌ Error uploading document from bytes: $e');
+      print('[DocumentUpload] Exception type: ${e.runtimeType}');
+      throw Exception('Error upload: ${e.toString()}');
     }
   }
 }

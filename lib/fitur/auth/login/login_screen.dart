@@ -6,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/pilihrole/role_selection_screen.dart';
 import 'package:bersatubantu/services/debug_auth_screen.dart';
 import 'package:bersatubantu/fitur/loading/loading_screen.dart';
-import 'package:bersatubantu/fitur/verifikasi_organisasi/screens/verification_flow.dart';
 
 class LoginScreen extends StatefulWidget {
   final String? selectedRole; // 'user' atau 'volunteer' dari RoleSelection pre-auth
@@ -146,13 +145,6 @@ class _LoginScreenState extends State<LoginScreen> {
             MaterialPageRoute(builder: (_) => const LoadingScreen()),
           );
         } else if (userRole == 'volunteer') {
-          // Organisasi - langsung ke verification flow
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (_) => const OrganizationVerificationFlow(),
-            ),
-          );
-        } else if (userRole == 'admin') {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const LoadingScreen()),
           );

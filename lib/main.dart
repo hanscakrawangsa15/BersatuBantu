@@ -4,8 +4,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
 import 'package:bersatubantu/fitur/auth/lupapassword/resetpassword.dart';
-import 'package:bersatubantu/services/supabase.dart' as app_supabase;
-import 'package:bersatubantu/services/debug_auth_screen.dart';
+import 'package:bersatubantu/fitur/auth/login/organization_login_screen.dart';
+import 'package:bersatubantu/fitur/auth/login/admin_dashboard_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -90,6 +90,22 @@ class _MyAppState extends State<MyApp> {
       // Tambahkan route handler untuk web reset password
       onGenerateRoute: (settings) {
         print('[Router] Navigating to: ${settings.name}');
+        
+        // Handle /organization_login route
+        if (settings.name == '/organization_login') {
+          print('[Router] Navigating to OrganizationLoginScreen');
+          return MaterialPageRoute(
+            builder: (context) => const OrganizationLoginScreen(),
+          );
+        }
+        
+        // Handle /admin_dashboard route
+        if (settings.name == '/admin_dashboard') {
+          print('[Router] Navigating to AdminDashboardScreen');
+          return MaterialPageRoute(
+            builder: (context) => const AdminDashboardScreen(),
+          );
+        }
         
         // Handle /reset-password route dari email
         if (settings.name == '/reset-password' || 

@@ -7,6 +7,8 @@ class OrganizationVerificationData {
   String? orgNpwp;
   String? orgRegistrationNo;
   String? email;
+  String? phone;
+  String? city;
   String? docAktaPath;
   String? docNpwpPath;
   String? docOtherPath;
@@ -20,6 +22,8 @@ class OrganizationVerificationData {
     this.orgNpwp,
     this.orgRegistrationNo,
     this.email,
+    this.phone,
+    this.city,
     this.docAktaPath,
     this.docNpwpPath,
     this.docOtherPath,

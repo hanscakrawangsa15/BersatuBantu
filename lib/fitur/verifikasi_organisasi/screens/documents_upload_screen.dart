@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import '../providers/verification_provider.dart';
 import '../../../services/document_upload_service.dart';
+import '../widgets/file_picker_widget.dart';
 
 class DocumentsUploadScreen extends StatefulWidget {
   const DocumentsUploadScreen({super.key});
@@ -129,11 +129,15 @@ class _DocumentsUploadScreenState extends State<DocumentsUploadScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {
-                            provider.nextStep();
-                          },
+                          onPressed: (provider.data.docAktaPath != null &&
+                                  provider.data.docNpwpPath != null)
+                              ? () {
+                                  provider.nextStep();
+                                }
+                              : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF768BBD),
+                            disabledBackgroundColor: const Color(0xFF768BBD).withOpacity(0.5),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -236,7 +240,7 @@ class _DocumentsUploadScreenState extends State<DocumentsUploadScreen> {
   void _showUploadOption(BuildContext context, String documentType) {
     showModalBottomSheet(
       context: context,
-      builder: (BuildContext context) => Container(
+      builder: (BuildContext bottomSheetContext) => Container(
         padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -245,7 +249,7 @@ class _DocumentsUploadScreenState extends State<DocumentsUploadScreen> {
               leading: const Icon(Icons.insert_drive_file),
               title: const Text('Pilih File PDF'),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(bottomSheetContext);
                 _pickAndUploadFile(context, documentType);
               },
             ),
@@ -260,80 +264,186 @@ class _DocumentsUploadScreenState extends State<DocumentsUploadScreen> {
         Provider.of<OrganizationVerificationProvider>(context, listen: false);
 
     try {
-      // Show loading
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Memilih file...'),
-          duration: Duration(seconds: 1),
-        ),
-      );
-
-      // Pick file
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        withData: true,
-      );
+      print('[DocumentUpload] Starting file picker for $documentType');
+      
+      // Pick file menggunakan utility
+      final result = await FilePickerUtil.pickPdfFile();
 
       if (result == null || result.files.isEmpty) {
+        print('[DocumentUpload] No file selected');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak ada file yang dipilih'),
+            duration: Duration(seconds: 2),
+          ),
+        );
         return;
       }
 
       final file = result.files.first;
+      print('[DocumentUpload] File selected: ${file.name} (${file.bytes?.length ?? 0} bytes)');
 
-      // Show uploading
+      // Validate file menggunakan utility
+      if (!FilePickerUtil.validatePdfFile(file)) {
+        String errorMsg = 'File tidak valid';
+        if (file.bytes == null || file.bytes!.isEmpty) {
+          errorMsg = 'File kosong atau tidak bisa dibaca';
+        } else if (!file.name.toLowerCase().endsWith('.pdf')) {
+          errorMsg = 'Hanya file PDF yang diperbolehkan';
+        } else if (file.bytes!.length > 5 * 1024 * 1024) {
+          errorMsg = 'Ukuran file terlalu besar (max 5MB)';
+        }
+        
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      print('[DocumentUpload] File validation passed');
+
+      // Show loading dialog
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Mengupload dokumen...'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      _showLoadingDialog(context, 'Mengupload dokumen...');
 
       // Upload ke Supabase
       final uploadService = DocumentUploadService();
-      final organizationId = provider.data.organizationId?.toString() ?? 'unknown';
+      final organizationId = provider.data.organizationId?.toString() ?? 
+          DateTime.now().millisecondsSinceEpoch.toString();
       
+      print('[DocumentUpload] Starting Supabase upload...');
+      print('[DocumentUpload] Organization ID: $organizationId');
+      print('[DocumentUpload] Document type: $documentType');
+      print('[DocumentUpload] File size: ${file.bytes?.length} bytes');
+
       String? uploadUrl;
-      if (file.bytes != null) {
+      try {
         uploadUrl = await uploadService.uploadDocumentFromBytes(
           bytes: file.bytes!,
           fileName: file.name,
           organizationId: organizationId,
           documentType: documentType,
         );
+        print('[DocumentUpload] Upload completed successfully');
+        print('[DocumentUpload] Public URL: $uploadUrl');
+      } catch (uploadError) {
+        print('[DocumentUpload] Upload error: $uploadError');
+        if (!mounted) return;
+        Navigator.pop(context); // Close loading dialog
+        
+        _showErrorDialog(
+          context,
+          'Gagal Upload Dokumen',
+          'Error saat upload:\n${uploadError.toString()}\n\nPastikan bucket "document_organisasi" sudah dibuat di Supabase Storage.',
+        );
+        return;
       }
 
-      if (uploadUrl != null) {
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+
+      if (uploadUrl != null && uploadUrl.isNotEmpty) {
         // Set document path di provider
         provider.setDocumentPath(documentType, uploadUrl);
+        print('[DocumentUpload] Document path saved in provider');
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$documentType berhasil diunggah'),
+            content: Text('${_getDocumentName(documentType)} berhasil diunggah'),
             backgroundColor: const Color(0xFF4CAF50),
             duration: const Duration(seconds: 2),
           ),
         );
       } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal mengupload dokumen'),
-            backgroundColor: Colors.red,
-          ),
+        _showErrorDialog(
+          context,
+          'Upload Gagal',
+          'Tidak dapat mendapatkan URL dokumen. Silakan coba lagi.',
         );
       }
     } catch (e) {
+      print('[DocumentUpload] Exception: $e');
+      print('[DocumentUpload] Exception type: ${e.runtimeType}');
+      
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
+      // Close loading dialog if still open
+      try {
+        Navigator.pop(context);
+      } catch (e) {
+        // Dialog might not be open
+      }
+      
+      final errorMsg = e is Exception 
+        ? FilePickerUtil.getErrorMessage(e)
+        : e.toString();
+        
+      _showErrorDialog(
+        context,
+        'Terjadi Kesalahan',
+        'Error: $errorMsg\n\nTroubleshooting:\n1. Pastikan izin file sudah diberikan\n2. Koneksi internet stabil\n3. Bucket "document_organisasi" sudah ada',
       );
+    }
+  }
+
+  void _showLoadingDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF768BBD)),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                fontFamily: 'CircularStd',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showErrorDialog(BuildContext context, String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getDocumentName(String documentType) {
+    switch (documentType) {
+      case 'akta':
+        return 'Akta Pendirian';
+      case 'npwp':
+        return 'NPWP';
+      case 'other':
+        return 'Surat Keterangan';
+      default:
+        return 'Dokumen';
     }
   }
 }

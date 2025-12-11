@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/verification_provider.dart';
 
 class VerifyingScreen extends StatefulWidget {
@@ -12,6 +13,7 @@ class VerifyingScreen extends StatefulWidget {
 class _VerifyingScreenState extends State<VerifyingScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
+  final supabase = Supabase.instance.client;
 
   @override
   void initState() {
@@ -21,12 +23,76 @@ class _VerifyingScreenState extends State<VerifyingScreen>
       duration: const Duration(seconds: 2),
     )..repeat();
 
-    // Auto transition ke success setelah 3 detik
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        context.read<OrganizationVerificationProvider>().nextStep();
+    // Start polling untuk cek approval dari admin
+    _startPollingForApproval();
+  }
+
+  void _startPollingForApproval() {
+    Future.microtask(() {
+      final provider = context.read<OrganizationVerificationProvider>();
+      final organizationId = provider.data.organizationId;
+
+      if (organizationId == null || organizationId.isEmpty) {
+        return;
       }
+
+      // Start polling loop
+      _pollForApproval(organizationId);
     });
+  }
+
+  Future<void> _pollForApproval(String organizationId) async {
+    // Poll setiap 2 detik untuk cek status approval
+    while (mounted) {
+      try {
+        final response = await supabase
+            .from('organization_verifications')
+            .select('status')
+            .eq('id', organizationId)
+            .single();
+
+        final status = response['status'];
+
+        if (mounted) {
+          if (status == 'approved') {
+            // Admin approved! Transisi ke success screen
+            final provider = context.read<OrganizationVerificationProvider>();
+            provider.currentStep = 4;
+            break;
+          } else if (status == 'rejected') {
+            // Admin rejected, show error
+            _showRejectionDialog(organizationId);
+            break;
+          }
+        }
+
+        // Wait 2 seconds sebelum polling lagi
+        await Future.delayed(const Duration(seconds: 2));
+      } catch (e) {
+        print('Error polling approval status: $e');
+        // Continue polling bahkan kalau ada error
+        await Future.delayed(const Duration(seconds: 2));
+      }
+    }
+  }
+
+  void _showRejectionDialog(String organizationId) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Pengajuan Ditolak'),
+        content: const Text('Maaf, pengajuan verifikasi organisasi Anda telah ditolak oleh admin. Silakan hubungi admin untuk informasi lebih lanjut.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
+            child: const Text('Kembali'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

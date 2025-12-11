@@ -14,12 +14,15 @@ class _OrganizationDataScreenState extends State<OrganizationDataScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isPasswordVisible = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -84,10 +87,15 @@ class _OrganizationDataScreenState extends State<OrganizationDataScreen> {
                         hintText: 'Nama',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 12,
+                          vertical: 14,
                         ),
                       ),
                     ),
@@ -108,10 +116,15 @@ class _OrganizationDataScreenState extends State<OrganizationDataScreen> {
                         hintText: '+62 ---',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 12,
+                          vertical: 14,
                         ),
                       ),
                       keyboardType: TextInputType.phone,
@@ -133,13 +146,63 @@ class _OrganizationDataScreenState extends State<OrganizationDataScreen> {
                         hintText: 'Email',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 12,
+                          vertical: 14,
                         ),
                       ),
                       keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 20),
+                    // Kata Sandi (Password)
+                    const Text(
+                      'Kata Sandi',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    StatefulBuilder(
+                      builder: (context, setState) => TextField(
+                        controller: _passwordController,
+                        obscureText: !_isPasswordVisible,
+                        decoration: InputDecoration(
+                          hintText: 'Password',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          suffixIcon: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _isPasswordVisible = !_isPasswordVisible;
+                              });
+                            },
+                            child: Icon(
+                              _isPasswordVisible
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                              color: const Color(0xFF999999),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 40),
                     // Progress dots
@@ -205,8 +268,9 @@ class _OrganizationDataScreenState extends State<OrganizationDataScreen> {
                           child: ElevatedButton(
                             onPressed: () {
                               provider.setField('orgLegalName', _nameController.text);
-                              provider.setField('orgNpwp', _phoneController.text);
-                              provider.setField('orgRegistrationNo', _emailController.text);
+                              provider.setField('phone', _phoneController.text);
+                              provider.setField('email', _emailController.text);
+                              // Note: Password will be handled during registration
                               provider.nextStep();
                             },
                             style: ElevatedButton.styleFrom(
