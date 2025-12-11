@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bersatubantu/fitur/auth/register/register_screen.dart';
+import 'package:bersatubantu/fitur/auth/lupapassword/lupapassword.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/pilihrole/role_selection_screen.dart';
 import 'package:bersatubantu/services/debug_auth_screen.dart';
@@ -456,7 +457,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           GestureDetector(
                             onTap: () {
-                              // TODO: Implement forgot password
+                              HapticFeedback.lightImpact();
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const ForgotPasswordScreen(),
+                                ),
+                              );
                             },
                             child: const Text(
                               'Lupa Password?',
