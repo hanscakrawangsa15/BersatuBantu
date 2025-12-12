@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:bersatubantu/fitur/dashboard/dashboard_screen.dart';
 
 // ------------------------------------------------------------------
 // 1. MAIN & INISIALISASI
@@ -159,17 +160,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-      // Bottom Navigation Bar
+      // Bottom Navigation Bar disamakan dengan Dashboard
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 3,
+        currentIndex: 3, // Profil terpilih
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF768BBD),
         unselectedItemColor: Colors.grey,
+        onTap: (index) {
+          switch (index) {
+            case 0: // Beranda
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const DashboardScreen()),
+                (route) => false,
+              );
+              break;
+            case 1: // Favorit (sementara: hanya snackbar atau TODO)
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Menu Favorit belum tersedia')),
+              );
+              break;
+            case 2: // Kategori (sementara: hanya snackbar atau TODO)
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Menu Kategori belum tersedia')),
+              );
+              break;
+            case 3: // Profil
+              // sudah di halaman ini, tidak perlu apa-apa
+              break;
+          }
+        },
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.handshake), label: 'Bantu'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Riwayat'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+          BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Beranda'),
+          BottomNavigationBarItem(icon: Icon(Icons.favorite_border_rounded), label: 'Favorit'),
+          BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'Kategori'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), label: 'Profil'),
         ],
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
+import 'package:bersatubantu/fitur/aturprofile/aturprofile.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -641,7 +642,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildNavItem(IconData icon, String label, int index) {
     final isSelected = _selectedIndex == index;
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
+        if (index == 3) {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const ProfileScreen(),
+            ),
+          );
+          // Refresh data user setelah kembali dari Atur Profil
+          _loadUserData();
+          return;
+        }
         setState(() {
           _selectedIndex = index;
         });
