@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
 import 'package:bersatubantu/fitur/donasi/donasi_screen.dart'; // Import donasi screen
+import 'package:bersatubantu/fitur/berikandonasi/berikandonasi.dart';
 import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
@@ -14,17 +15,20 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final supabase = Supabase.instance.client;
   late final StreamSubscription<AuthState> _authSubscription;
-  
+
   int _selectedIndex = 0;
   String _selectedCategory = 'Semua';
   String _userName = '';
   bool _isLoadingUser = true;
+  // Campaigns
+  bool _isLoadingCampaigns = true;
+  List<Map<String, dynamic>> _campaigns = [];
 
   final List<String> _categories = [
     'Semua',
     'Bencana Alam',
     'Kemiskinan',
-    'Hak Asasi'
+    'Hak Asasi',
   ];
 
   final List<Map<String, dynamic>> _featuredNews = [
@@ -64,7 +68,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    
+
     // Listen to auth state changes
     _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
       final session = data.session;
@@ -79,9 +83,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         });
       }
     });
-    
+
     // Initial load
     _loadUserData();
+    _loadCampaigns();
   }
 
   @override
@@ -98,7 +103,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       // Get current user ID from auth
       final user = supabase.auth.currentUser;
-      
+
       if (user == null) {
         print('[Dashboard] No authenticated user found');
         setState(() {
@@ -126,7 +131,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       // Query profiles table with the user ID
       print('[Dashboard] Querying profiles table for user ID: ${user.id}');
-      
+
       final response = await supabase
           .from('profiles')
           .select('full_name, email, id')
@@ -137,14 +142,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       if (response != null) {
         print('[Dashboard] Profile found in database');
-        
+
         final fullName = response['full_name'];
-        print('[Dashboard] Full name value: "$fullName" (type: ${fullName.runtimeType})');
-        
+        print(
+          '[Dashboard] Full name value: "$fullName" (type: ${fullName.runtimeType})',
+        );
+
         if (fullName != null) {
           final nameString = fullName.toString().trim();
           print('[Dashboard] After trim: "$nameString"');
-          
+
           if (nameString.isNotEmpty) {
             setState(() {
               _userName = nameString;
@@ -154,7 +161,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return;
           }
         }
-        
+
         // Fallback: Try to get from email
         print('[Dashboard] full_name is null or empty, using email fallback');
         final email = response['email'] ?? user.email;
@@ -166,8 +173,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         print('[Dashboard] Using email prefix: $_userName');
       } else {
         // Profile not found in database
-        print('[Dashboard] No profile found in database for user ID: ${user.id}');
-        
+        print(
+          '[Dashboard] No profile found in database for user ID: ${user.id}',
+        );
+
         final email = user.email;
         final nameFromEmail = email?.split('@')[0] ?? 'Pengguna';
         setState(() {
@@ -179,12 +188,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (e, stackTrace) {
       print('[Dashboard] Error loading user data: $e');
       print('[Dashboard] Stack trace: $stackTrace');
-      
+
       // Fallback to email prefix
       final user = supabase.auth.currentUser;
       final email = user?.email;
       final nameFromEmail = email?.split('@')[0] ?? 'Pengguna';
-      
+
       setState(() {
         _userName = nameFromEmail;
         _isLoadingUser = false;
@@ -192,9 +201,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _loadCampaigns() async {
+    setState(() {
+      _isLoadingCampaigns = true;
+    });
+
+    try {
+      final response = await supabase
+          .from('donation_campaigns')
+          .select(
+            'id, title, cover_image_url, end_time, target_amount, collected_amount',
+          )
+          .eq('status', 'active')
+          .order('end_time', ascending: true)
+          .limit(50);
+
+      if (response != null && response is List) {
+        setState(() {
+          _campaigns = List<Map<String, dynamic>>.from(response);
+        });
+      } else {
+        setState(() {
+          _campaigns = [];
+        });
+      }
+    } catch (e) {
+      print('[Dashboard] Error loading campaigns: $e');
+      setState(() {
+        _campaigns = [];
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingCampaigns = false;
+        });
+      }
+    }
+  }
+
+  // Returns a pair: formatted string and daysLeft (rounded down)
+  Map<String, dynamic> _remainingUntil(String? endTimeStr) {
+    if (endTimeStr == null) return {'text': 'Tidak tersedia', 'days': null};
+
+    try {
+      final end = DateTime.parse(endTimeStr).toLocal();
+      final now = DateTime.now();
+      final diff = end.difference(now);
+      final days = diff.inDays;
+      if (diff.isNegative) {
+        return {'text': 'Selesai', 'days': days};
+      }
+      if (days >= 1) {
+        return {'text': '$days hari lagi', 'days': days};
+      }
+      final hours = diff.inHours;
+      if (hours >= 1) return {'text': '$hours jam lagi', 'days': 0};
+      final minutes = diff.inMinutes;
+      return {'text': '$minutes menit lagi', 'days': 0};
+    } catch (e) {
+      return {'text': 'Tidak tersedia', 'days': null};
+    }
+  }
+
   String _getGreeting() {
     final hour = DateTime.now().hour;
-    
+
     if (hour >= 5 && hour < 11) {
       return 'Selamat pagi,';
     } else if (hour >= 11 && hour < 15) {
@@ -208,7 +279,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _onNavTap(int index) {
     if (index == _selectedIndex) return;
-    
+
     switch (index) {
       case 0:
         // Already on Beranda, do nothing
@@ -257,7 +328,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 width: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -393,14 +466,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _categories.length,
                         itemBuilder: (context, index) {
-                          final isSelected = _selectedCategory == _categories[index];
+                          final isSelected =
+                              _selectedCategory == _categories[index];
                           return Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: FilterChip(
                               selected: isSelected,
                               label: Text(_categories[index]),
                               labelStyle: TextStyle(
-                                color: isSelected ? Colors.white : const Color(0xFF364057),
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF364057),
                                 fontFamily: 'CircularStd',
                                 fontSize: 13,
                               ),
@@ -469,8 +545,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     child: Padding(
                                       padding: const EdgeInsets.all(16),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
                                         children: [
                                           Text(
                                             news['title'],
@@ -489,7 +567,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                               Text(
                                                 news['date'],
                                                 style: TextStyle(
-                                                  color: Colors.white.withOpacity(0.8),
+                                                  color: Colors.white
+                                                      .withOpacity(0.8),
                                                   fontSize: 11,
                                                   fontFamily: 'CircularStd',
                                                 ),
@@ -498,7 +577,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 Text(
                                                   ' – ${news['time']}',
                                                   style: TextStyle(
-                                                    color: Colors.white.withOpacity(0.8),
+                                                    color: Colors.white
+                                                        .withOpacity(0.8),
                                                     fontSize: 11,
                                                     fontFamily: 'CircularStd',
                                                   ),
@@ -510,7 +590,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           Text(
                                             news['source'],
                                             style: TextStyle(
-                                              color: Colors.white.withOpacity(0.8),
+                                              color: Colors.white.withOpacity(
+                                                0.8,
+                                              ),
                                               fontSize: 11,
                                               fontFamily: 'CircularStd',
                                             ),
@@ -521,6 +603,264 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   );
                                 },
                               ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Donasi Section
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Donasi',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF364057),
+                                    fontFamily: 'CircularStd',
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: () => _loadCampaigns(),
+                                  child: Text(
+                                    _isLoadingCampaigns
+                                        ? 'Memuat...'
+                                        : 'Lihat Semua',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey[600],
+                                      fontFamily: 'CircularStd',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 160,
+                              child: _isLoadingCampaigns
+                                  ? const Center(
+                                      child: CircularProgressIndicator(),
+                                    )
+                                  : _campaigns.isEmpty
+                                  ? Center(
+                                      child: Text(
+                                        'Tidak ada kampanye aktif',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: _campaigns.length,
+                                      itemBuilder: (context, idx) {
+                                        final c = _campaigns[idx];
+                                        final rem = _remainingUntil(
+                                          c['end_time'] as String?,
+                                        );
+                                        final days = rem['days'];
+                                        final remText = rem['text'] as String;
+                                        final highlight =
+                                            days != null &&
+                                            days >= 1 &&
+                                            days <= 5;
+                                        final canDonate = c['end_time'] != null
+                                            ? (DateTime.tryParse(
+                                                    c['end_time'],
+                                                  )?.isAfter(DateTime.now()) ??
+                                                  true)
+                                            : true;
+
+                                        return GestureDetector(
+                                          onTap: () async {
+                                            if (!canDonate) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Donasi ini sudah selesai',
+                                                  ),
+                                                  backgroundColor:
+                                                      Colors.orange,
+                                                ),
+                                              );
+                                              return;
+                                            }
+
+                                            final result = await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    BerikanDonasiScreen(
+                                                      donation: c,
+                                                    ),
+                                              ),
+                                            );
+
+                                            if (result == true) {
+                                              _loadCampaigns();
+                                            }
+                                          },
+                                          child: Container(
+                                            width: 300,
+                                            height: 140,
+                                            margin: const EdgeInsets.only(
+                                              right: 12,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withOpacity(0.05),
+                                                  blurRadius: 6,
+                                                  offset: const Offset(0, 3),
+                                                ),
+                                              ],
+                                              border: highlight
+                                                  ? Border.all(
+                                                      color: Colors.redAccent,
+                                                      width: 2,
+                                                    )
+                                                  : null,
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Container(
+                                                  height: 84,
+                                                  width: double.infinity,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.grey[300],
+                                                    borderRadius:
+                                                        const BorderRadius.only(
+                                                          topLeft:
+                                                              Radius.circular(
+                                                                12,
+                                                              ),
+                                                          topRight:
+                                                              Radius.circular(
+                                                                12,
+                                                              ),
+                                                        ),
+                                                    image:
+                                                        c['cover_image_url'] !=
+                                                            null
+                                                        ? DecorationImage(
+                                                            image: NetworkImage(
+                                                              c['cover_image_url'],
+                                                            ),
+                                                            fit: BoxFit.cover,
+                                                          )
+                                                        : null,
+                                                  ),
+                                                ),
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 8,
+                                                      ),
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            Text(
+                                                              c['title'] ??
+                                                                  'Kegiatan',
+                                                              style: const TextStyle(
+                                                                fontSize: 14,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                color: Color(
+                                                                  0xFF364057,
+                                                                ),
+                                                                fontFamily:
+                                                                    'CircularStd',
+                                                              ),
+                                                              maxLines: 2,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                            const SizedBox(
+                                                              height: 6,
+                                                            ),
+                                                            Text(
+                                                              remText,
+                                                              style: TextStyle(
+                                                                color: highlight
+                                                                    ? Colors
+                                                                          .redAccent
+                                                                    : Colors
+                                                                          .grey[700],
+                                                                fontWeight:
+                                                                    highlight
+                                                                    ? FontWeight
+                                                                          .bold
+                                                                    : FontWeight
+                                                                          .w500,
+                                                                fontFamily:
+                                                                    'CircularStd',
+                                                                fontSize: 12,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      InkWell(
+                                                        onTap: () {
+                                                          print(
+                                                            "[Dashboard] Open campaign ${c['id']}",
+                                                          );
+                                                        },
+                                                        child: Container(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 10,
+                                                                vertical: 6,
+                                                              ),
+                                                          decoration: BoxDecoration(
+                                                            color: const Color(
+                                                              0xFF8FA3CC,
+                                                            ),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  8,
+                                                                ),
+                                                          ),
+                                                          child: Text(
+                                                            'Donasi',
+                                                            style:
+                                                                const TextStyle(
+                                                                  color: Colors
+                                                                      .white,
+                                                                  fontSize: 12,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
                             ),
                             const SizedBox(height: 24),
 
@@ -553,12 +893,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             GridView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: 0.75,
-                              ),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    childAspectRatio: 0.75,
+                                  ),
                               itemCount: _popularNews.length,
                               itemBuilder: (context, index) {
                                 final news = _popularNews[index];
@@ -574,10 +915,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         child: Container(
                                           decoration: BoxDecoration(
                                             color: Colors.grey[400],
-                                            borderRadius: const BorderRadius.only(
-                                              topLeft: Radius.circular(12),
-                                              topRight: Radius.circular(12),
-                                            ),
+                                            borderRadius:
+                                                const BorderRadius.only(
+                                                  topLeft: Radius.circular(12),
+                                                  topRight: Radius.circular(12),
+                                                ),
                                           ),
                                           child: Center(
                                             child: Icon(
@@ -593,7 +935,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         child: Padding(
                                           padding: const EdgeInsets.all(8),
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Expanded(
                                                 child: Text(
@@ -605,7 +948,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                     fontFamily: 'CircularStd',
                                                   ),
                                                   maxLines: 3,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                               ),
                                               const SizedBox(height: 4),
@@ -636,10 +980,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
 
             // Bottom Navigation - Using BottomNavBar widget
-            BottomNavBar(
-              currentIndex: _selectedIndex,
-              onTap: _onNavTap,
-            ),
+            BottomNavBar(currentIndex: _selectedIndex, onTap: _onNavTap),
           ],
         ),
       ),
