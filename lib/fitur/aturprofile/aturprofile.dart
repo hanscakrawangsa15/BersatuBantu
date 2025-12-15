@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
+import 'package:bersatubantu/fitur/aturprofile/account_settings_screen.dart';
+import 'package:bersatubantu/fitur/aturprofile/donation_history_screen.dart';
 
 // ------------------------------------------------------------------
 // 1. MAIN & INISIALISASI
@@ -173,9 +175,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 30),
             
             // --- MENU LAINNYA ---
-            _buildPlaceholderItem(),
-            _buildPlaceholderItem(),
-            _buildPlaceholderItem(),
+            _buildMenuCard(
+              icon: Icons.settings_outlined,
+              title: "Pengaturan Akun",
+              subtitle: "Ubah password, notifikasi, privasi",
+              onTap: () {
+                // Navigasi ke Pengaturan Akun
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AccountSettingsScreen()),
+                );
+              },
+            ),
+            _buildMenuCard(
+              icon: Icons.history_outlined,
+              title: "Riwayat Donasi",
+              subtitle: "Lihat donasi yang telah dilakukan",
+              onTap: () {
+                // Navigasi ke Riwayat Donasi
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const DonationHistoryScreen()),
+                );
+              },
+            ),
             const SizedBox(height: 30),
             
             // --- TOMBOL LOGOUT ---
@@ -275,11 +298,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
   }
 
-  Widget _buildPlaceholderItem() {
-    return Container(
-      height: 80,
-      margin: const EdgeInsets.only(bottom: 15),
-      decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+  Widget _buildMenuCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF768BBD).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: const Color(0xFF768BBD), size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+          ],
+        ),
+      ),
     );
   }
 
