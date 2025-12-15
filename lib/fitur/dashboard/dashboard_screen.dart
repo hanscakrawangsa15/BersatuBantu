@@ -112,19 +112,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       print('[Dashboard] Current user ID: ${user.id}');
       print('[Dashboard] User email: ${user.email}');
 
-      // Try to get full_name from user metadata first (if stored during signup)
-      if (user.userMetadata?['full_name'] != null) {
-        final metadataName = user.userMetadata!['full_name'] as String;
-        if (metadataName.isNotEmpty) {
-          print('[Dashboard] Found name in metadata: $metadataName');
-          setState(() {
-            _userName = metadataName;
-            _isLoadingUser = false;
-          });
-          return;
-        }
-      }
-
+      
       // Query profiles table with the user ID
       print('[Dashboard] Querying profiles table for user ID: ${user.id}');
       
@@ -156,26 +144,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         }
         
-        // Fallback: Try to get from email
-        print('[Dashboard] full_name is null or empty, using email fallback');
-        final email = response['email'] ?? user.email;
-        final nameFromEmail = email?.split('@')[0] ?? 'Pengguna';
-        setState(() {
-          _userName = nameFromEmail;
-          _isLoadingUser = false;
-        });
-        print('[Dashboard] Using email prefix: $_userName');
+        // Fallback: Try metadata, then email
+        print('[Dashboard] full_name is null or empty, trying metadata fallback');
+        final metadataName = (user.userMetadata?['full_name'] as String?)?.trim();
+        if (metadataName != null && metadataName.isNotEmpty) {
+          setState(() {
+            _userName = metadataName;
+            _isLoadingUser = false;
+          });
+          print('[Dashboard] Using metadata full_name: $_userName');
+        } else {
+          final email = response['email'] ?? user.email;
+          final nameFromEmail = email?.split('@')[0] ?? 'Pengguna';
+          setState(() {
+            _userName = nameFromEmail;
+            _isLoadingUser = false;
+          });
+          print('[Dashboard] Using email prefix: $_userName');
+        }
       } else {
         // Profile not found in database
         print('[Dashboard] No profile found in database for user ID: ${user.id}');
         
-        final email = user.email;
-        final nameFromEmail = email?.split('@')[0] ?? 'Pengguna';
-        setState(() {
-          _userName = nameFromEmail;
-          _isLoadingUser = false;
-        });
-        print('[Dashboard] Using email prefix as name: $_userName');
+        final metadataName = (user.userMetadata?['full_name'] as String?)?.trim();
+        if (metadataName != null && metadataName.isNotEmpty) {
+          setState(() {
+            _userName = metadataName;
+            _isLoadingUser = false;
+          });
+          print('[Dashboard] Using metadata full_name: $_userName');
+        } else {
+          final email = user.email;
+          final nameFromEmail = email?.split('@')[0] ?? 'Pengguna';
+          setState(() {
+            _userName = nameFromEmail;
+            _isLoadingUser = false;
+          });
+          print('[Dashboard] Using email prefix as name: $_userName');
+        }
       }
     } catch (e, stackTrace) {
       print('[Dashboard] Error loading user data: $e');
@@ -207,30 +213,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  void _onNavTap(int index) {
+  void _onNavTap(int index) async {
     if (index == _selectedIndex) return;
     
     switch (index) {
       case 0:
         // Already on Beranda, do nothing
+        setState(() {
+          _selectedIndex = index;
+        });
         break;
       case 1:
         // Navigate to Donasi screen
         print('[Dashboard] Navigate to Donasi');
-        Navigator.push(
+        setState(() {
+          _selectedIndex = index;
+        });
+        await Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const DonasiScreen()),
         );
+        // Optional: reload user data after returning
+        await _loadUserData();
         break;
       case 2:
         // TODO: Navigate to Aksi screen
         print('[Dashboard] Navigate to Aksi');
-        // Navigator.push(context, MaterialPageRoute(builder: (context) => AksiScreen()));
+        setState(() {
+          _selectedIndex = index;
+        });
         break;
       case 3:
-        // TODO: Navigate to Profil screen
+        // Navigate to Profil (Atur Profil)
         print('[Dashboard] Navigate to Profil');
-        // Navigator.push(context, MaterialPageRoute(builder: (context) => ProfilScreen()));
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfileScreen()),
+        );
+        // Refresh user data after returning from profile edit
+        await _loadUserData();
+        // Keep selected index on Beranda after returning, or set to 3 if you highlight Profile
+        setState(() {
+          _selectedIndex = 0;
+        });
         break;
     }
   }
