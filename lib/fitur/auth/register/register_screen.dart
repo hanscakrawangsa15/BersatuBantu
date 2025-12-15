@@ -179,7 +179,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'id': response.user!.id,
           'full_name': _nameController.text.trim(),
           'email': _emailController.text.trim(),
-          'role': null,
+          'role': 'personal',
         });
         
         print('[Register] Profile inserted successfully');
@@ -192,7 +192,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'id': response.user!.id,
           'full_name': _nameController.text.trim(),
           'email': _emailController.text.trim(),
-          'role': null,
+          'role': 'personal',
         });
         
         print('[Register] Profile upserted successfully');

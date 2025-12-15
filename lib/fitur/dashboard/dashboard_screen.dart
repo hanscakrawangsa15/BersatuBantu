@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
+import 'package:bersatubantu/fitur/donasi/donasi_screen.dart'; // Import donasi screen
 import 'dart:async';
 import 'package:bersatubantu/fitur/aturprofile/aturprofile.dart';
 
@@ -201,7 +203,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } else if (hour >= 15 && hour < 18) {
       return 'Selamat sore,';
     } else {
-      return 'Selamat malam, ';
+      return 'Selamat malam,';
+    }
+  }
+
+  void _onNavTap(int index) {
+    if (index == _selectedIndex) return;
+    
+    switch (index) {
+      case 0:
+        // Already on Beranda, do nothing
+        break;
+      case 1:
+        // Navigate to Donasi screen
+        print('[Dashboard] Navigate to Donasi');
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const DonasiScreen()),
+        );
+        break;
+      case 2:
+        // TODO: Navigate to Aksi screen
+        print('[Dashboard] Navigate to Aksi');
+        // Navigator.push(context, MaterialPageRoute(builder: (context) => AksiScreen()));
+        break;
+      case 3:
+        // TODO: Navigate to Profil screen
+        print('[Dashboard] Navigate to Profil');
+        // Navigator.push(context, MaterialPageRoute(builder: (context) => ProfilScreen()));
+        break;
     }
   }
 
@@ -223,7 +253,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: _isLoadingUser
                         ? Row(
                             children: [
-                              SizedBox(
+                              const SizedBox(
                                 height: 16,
                                 width: 16,
                                 child: CircularProgressIndicator(
@@ -467,7 +497,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                               ),
                                               if (news['time'] != null) ...[
                                                 Text(
-                                                  ' — ${news['time']}',
+                                                  ' – ${news['time']}',
                                                   style: TextStyle(
                                                     color: Colors.white.withOpacity(0.8),
                                                     fontSize: 11,
@@ -606,32 +636,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            // Bottom Navigation
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildNavItem(Icons.home_rounded, 'Beranda', 0),
-                      _buildNavItem(Icons.favorite_border_rounded, 'Favorit', 1),
-                      _buildNavItem(Icons.grid_view_rounded, 'Kategori', 2),
-                      _buildNavItem(Icons.person_outline_rounded, 'Profil', 3),
-                    ],
-                  ),
-                ),
-              ),
+            // Bottom Navigation - Using BottomNavBar widget
+            BottomNavBar(
+              currentIndex: _selectedIndex,
+              onTap: _onNavTap,
             ),
           ],
         ),
