@@ -3,6 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -20,6 +25,7 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _targetAmountController = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
   
   File? _selectedImage;
   Uint8List? _imageBytes;
@@ -27,12 +33,18 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
   bool _isLoading = false;
   bool _isSavingDraft = false;
   DateTime? _selectedEndDate;
+  
+  // Location data
+  double? _latitude;
+  double? _longitude;
+  String? _locationName;
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
     _targetAmountController.dispose();
+    _locationController.dispose();
     super.dispose();
   }
 
@@ -97,6 +109,59 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
       setState(() {
         _selectedEndDate = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
       });
+    }
+  }
+
+  Future<void> _pickLocation() async {
+    try {
+      // Request location permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw 'Izin lokasi ditolak';
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        throw 'Izin lokasi ditolak permanen. Silakan aktifkan di pengaturan.';
+      }
+
+      // Get current position
+      final Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      if (!mounted) return;
+
+      // Navigate to map picker
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LocationPickerScreen(
+            initialPosition: LatLng(position.latitude, position.longitude),
+          ),
+        ),
+      );
+
+      if (result != null && result is Map<String, dynamic>) {
+        setState(() {
+          _latitude = result['latitude'];
+          _longitude = result['longitude'];
+          _locationName = result['locationName'];
+          _locationController.text = _locationName ?? 'Lokasi dipilih';
+        });
+      }
+    } catch (e) {
+      print('[PostingDonasi] Error picking location: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal memilih lokasi: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -216,6 +281,9 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
         'status': 'draft',
         'start_time': DateTime.now().toIso8601String(),
         'end_time': endTime.toIso8601String(),
+        'latitude': _latitude,
+        'longitude': _longitude,
+        'location_name': _locationName,
         'created_at': DateTime.now().toIso8601String(),
       });
 
@@ -292,6 +360,9 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
         'status': 'active',
         'start_time': DateTime.now().toIso8601String(),
         'end_time': _selectedEndDate!.toIso8601String(),
+        'latitude': _latitude,
+        'longitude': _longitude,
+        'location_name': _locationName,
         'created_at': DateTime.now().toIso8601String(),
       });
 
@@ -580,6 +651,73 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
                 ),
                 const SizedBox(height: 20),
 
+                // Lokasi (Optional)
+                Row(
+                  children: [
+                    const Text(
+                      'Lokasi Kejadian',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF364057),
+                        fontFamily: 'CircularStd',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '(Opsional)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                        fontFamily: 'CircularStd',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: _pickLocation,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F6FA),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _latitude != null ? const Color(0xFF8FA3CC) : Colors.grey[300]!,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _locationController.text.isEmpty
+                                ? 'Pilih lokasi di peta'
+                                : _locationController.text,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: _locationController.text.isEmpty
+                                  ? Colors.grey[400]
+                                  : const Color(0xFF364057),
+                              fontFamily: 'CircularStd',
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Icon(
+                          Icons.location_on,
+                          size: 20,
+                          color: _latitude != null 
+                              ? const Color(0xFF8FA3CC) 
+                              : Colors.grey[600],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
                 // Unggah Gambar
                 const Text(
                   'Unggah',
@@ -726,6 +864,196 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
   }
 }
 
+// Location Picker Screen
+class LocationPickerScreen extends StatefulWidget {
+  final LatLng initialPosition;
+
+  const LocationPickerScreen({
+    super.key,
+    required this.initialPosition,
+  });
+
+  @override
+  State<LocationPickerScreen> createState() => _LocationPickerScreenState();
+}
+
+class _LocationPickerScreenState extends State<LocationPickerScreen> {
+  late GoogleMapController _mapController;
+  late LatLng _selectedPosition;
+  final Set<Marker> _markers = {};
+  String? _resolvedAddress;
+  bool _isResolvingAddress = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedPosition = widget.initialPosition;
+    _markers.add(
+      Marker(
+        markerId: const MarkerId('selected_location'),
+        position: _selectedPosition,
+      ),
+    );
+    // Resolve initial position to a human-readable address
+    _resolveAddress(_selectedPosition);
+  }
+
+  void _onMapTapped(LatLng position) {
+    setState(() {
+      _selectedPosition = position;
+      _markers.clear();
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('selected_location'),
+          position: position,
+        ),
+      );
+    });
+    _resolveAddress(position);
+  }
+
+  Future<void> _resolveAddress(LatLng pos) async {
+    final apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
+    if (apiKey.isEmpty) {
+      setState(() {
+        _resolvedAddress = null;
+        _isResolvingAddress = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isResolvingAddress = true;
+      _resolvedAddress = null;
+    });
+
+    try {
+      final url = Uri.parse('https://maps.googleapis.com/maps/api/geocode/json?latlng=${pos.latitude},${pos.longitude}&key=$apiKey');
+      final resp = await http.get(url).timeout(const Duration(seconds: 8));
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        final results = data['results'] as List<dynamic>?;
+        if (results != null && results.isNotEmpty) {
+          setState(() {
+            _resolvedAddress = results[0]['formatted_address'] as String?;
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      print('[LocationPicker] Error resolving address: $e');
+    } finally {
+      setState(() {
+        _isResolvingAddress = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF8FA3CC),
+        title: const Text(
+          'Pilih Lokasi',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'CircularStd',
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, {
+                'latitude': _selectedPosition.latitude,
+                'longitude': _selectedPosition.longitude,
+                'locationName': _resolvedAddress ?? 'Lat: ${_selectedPosition.latitude.toStringAsFixed(6)}, Lng: ${_selectedPosition.longitude.toStringAsFixed(6)}',
+              });
+            },
+            child: const Text(
+              'Pilih',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'CircularStd',
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Address display
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.place, color: Color(0xFF8FA3CC)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _isResolvingAddress
+                        ? Row(
+                            children: const [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              SizedBox(width: 8),
+                              Text('Mencari alamat...'),
+                            ],
+                          )
+                        : Text(
+                            _resolvedAddress ?? 'Lat: ${_selectedPosition.latitude.toStringAsFixed(6)}, Lng: ${_selectedPosition.longitude.toStringAsFixed(6)}',
+                            style: const TextStyle(fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: GoogleMap(
+        initialCameraPosition: CameraPosition(
+          target: _selectedPosition,
+          zoom: 15,
+        ),
+        onMapCreated: (controller) {
+          _mapController = controller;
+        },
+        onTap: _onMapTapped,
+        markers: _markers,
+        myLocationEnabled: true,
+        myLocationButtonEnabled: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Input Formatter untuk ribuan separator
 class _ThousandsSeparatorInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
