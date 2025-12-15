@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:bersatubantu/fitur/dashboard/dashboard_screen.dart';
+import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
 
 // ------------------------------------------------------------------
 // 1. MAIN & INISIALISASI
@@ -63,6 +63,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _getProfileData();
   }
 
+  @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    print('[ProfileScreen] Widget updated - Refreshing profile data');
+    _getProfileData();
+  }
+
   // MURNI AMBIL DARI DATABASE
   Future<void> _getProfileData() async {
     try {
@@ -106,21 +113,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Atur Profil", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            // --- HEADER PROFIL ---
-            Row(
-              children: [
-                const CircleAvatar(
-                  radius: 35,
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          print('[ProfileScreen] PopScope triggered - User navigating back');
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("Atur Profil", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            children: [
+              // --- HEADER PROFIL ---
+              Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 35,
                   backgroundColor: Color(0xFF768BBD),
                   child: Icon(Icons.person, size: 40, color: Colors.white),
                 ),
@@ -136,12 +150,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 OutlinedButton(
                   onPressed: () async {
                     // Pindah ke halaman Edit (Tanpa kirim data dummy)
-                    await Navigator.push(
+                    final result = await Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => const EditProfileScreen()),
                     );
-                    // Refresh data DB setelah kembali
-                    _getProfileData(); 
+                    // Refresh data DB setelah kembali (jika ada perubahan)
+                    if (result == true) {
+                      print('[ProfileScreen] Profile was updated - Refreshing data');
+                      _getProfileData();
+                    } else {
+                      print('[ProfileScreen] Profile edit was cancelled');
+                    }
                   },
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF768BBD)),
@@ -157,6 +176,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildPlaceholderItem(),
             _buildPlaceholderItem(),
             _buildPlaceholderItem(),
+            const SizedBox(height: 30),
+            
+            // --- TOMBOL LOGOUT ---
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  // Tampilkan dialog konfirmasi logout
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      title: const Text("Konfirmasi Logout", style: TextStyle(fontWeight: FontWeight.bold)),
+                      content: const Text("Apakah Anda yakin ingin keluar dari akun ini?"),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+                        ),
+                        ElevatedButton(
+                          onPressed: () async {
+                            Navigator.pop(context); // Tutup dialog
+                            try {
+                              // Logout dari Supabase
+                              await Supabase.instance.client.auth.signOut();
+                              if (mounted) {
+                                // Navigasi ke Splash Screen dan hapus semua route sebelumnya
+                                Navigator.of(context).pushAndRemoveUntil(
+                                  MaterialPageRoute(builder: (context) => const SplashScreen()),
+                                  (route) => false,
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text("Gagal logout: $e")),
+                                );
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                          ),
+                          child: const Text("Logout", style: TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text("Logout", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
           ],
         ),
       ),
@@ -168,11 +244,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         unselectedItemColor: Colors.grey,
         onTap: (index) {
           switch (index) {
-            case 0: // Beranda
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const DashboardScreen()),
-                (route) => false,
-              );
+            case 0: // Beranda - Pop back to Dashboard dengan signal refresh
+              print('[ProfileScreen] Navigate back to Dashboard via BottomNav');
+              Navigator.of(context).pop(true); // Return true untuk signal refresh
               break;
             case 1: // Favorit (sementara: hanya snackbar atau TODO)
               ScaffoldMessenger.of(context).showSnackBar(
@@ -196,7 +270,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), label: 'Profil'),
         ],
       ),
+      ),
     );
+  }
   }
 
   Widget _buildPlaceholderItem() {
@@ -206,7 +282,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
     );
   }
-}
+
 
 // ------------------------------------------------------------------
 // 3. EDIT PROFIL (REAL DB UPDATE)
@@ -280,10 +356,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'updated_at': DateTime.now().toIso8601String(),
       });
 
-      if (mounted) Navigator.pop(context); // Kembali ke Profil jika sukses
+      if (mounted) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil berhasil diperbarui'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        // Wait a bit for the snackbar to be visible then pop
+        await Future.delayed(const Duration(milliseconds: 500));
+        Navigator.pop(context, true); // Return true to indicate data was updated
+      }
 
     } catch (e) {
       // Jika Gagal (Internet mati / Error DB)
+      print('[EditProfile] Error updating profile: $e');
       _showErrorDialog();
     } finally {
       if (mounted) setState(() => _isLoading = false);
