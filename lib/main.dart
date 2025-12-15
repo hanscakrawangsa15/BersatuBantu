@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'utils/maps_availability.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
 import 'package:bersatubantu/fitur/auth/lupapassword/resetpassword.dart';
@@ -23,6 +25,23 @@ Future<void> main() async {
     url: dotenv.env['SUPABASE_URL'] ?? '',
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
+
+  // If running on web and a Google Maps API key is present in .env, try to inject the
+  // Google Maps JavaScript API automatically so the map can load without manual
+  // index.html edits. This is optional but convenient for local dev.
+  if (kIsWeb) {
+    final mapsApiKey = dotenv.env['GOOGLE_MAPS_API_KEY'];
+    if (mapsApiKey != null && mapsApiKey.isNotEmpty) {
+      try {
+        final ok = await injectGoogleMapsScript(mapsApiKey);
+        print('[Maps] injectGoogleMapsScript result: $ok');
+      } catch (e) {
+        print('[Maps] Failed to inject Google Maps script: $e');
+      }
+    } else {
+      print('[Maps] No GOOGLE_MAPS_API_KEY found in .env; web map will require adding the script tag to web/index.html');
+    }
+  }
 
   runApp(const MyApp());
 }
