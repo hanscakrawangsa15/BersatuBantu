@@ -4,6 +4,7 @@ import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
 import 'package:bersatubantu/fitur/donasi/donasi_screen.dart'; // Import donasi screen
 import 'package:bersatubantu/fitur/aksi/aksi_screen.dart';
 import 'dart:async';
+import 'package:bersatubantu/fitur/aturprofile/aturprofile.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -12,7 +13,7 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   final supabase = Supabase.instance.client;
   late final StreamSubscription<AuthState> _authSubscription;
   
@@ -66,6 +67,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     
+    // Register WidgetsBindingObserver untuk track lifecycle
+    WidgetsBinding.instance.addObserver(this);
+    
     // Listen to auth state changes
     _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
       final session = data.session;
@@ -88,6 +92,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _authSubscription.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -112,21 +117,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       print('[Dashboard] Current user ID: ${user.id}');
       print('[Dashboard] User email: ${user.email}');
 
-      // Try to get full_name from user metadata first (if stored during signup)
-      if (user.userMetadata?['full_name'] != null) {
-        final metadataName = user.userMetadata!['full_name'] as String;
-        if (metadataName.isNotEmpty) {
-          print('[Dashboard] Found name in metadata: $metadataName');
-          setState(() {
-            _userName = metadataName;
-            _isLoadingUser = false;
-          });
-          return;
-        }
-      }
-
-      // Query profiles table with the user ID
-      print('[Dashboard] Querying profiles table for user ID: ${user.id}');
+      // Query profiles table with the user ID - ALWAYS CHECK DATABASE FIRST
+      print('[Dashboard] Querying profiles table for fresh data from user ID: ${user.id}');
       
       final response = await supabase
           .from('profiles')
@@ -151,13 +143,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _userName = nameString;
               _isLoadingUser = false;
             });
-            print('[Dashboard] Successfully loaded user name: $_userName');
+            print('[Dashboard] Successfully loaded user name from DB: $_userName');
             return;
           }
         }
         
-        // Fallback: Try to get from email
-        print('[Dashboard] full_name is null or empty, using email fallback');
+        // Fallback: Try email prefix
+        print('[Dashboard] full_name is null or empty, using email prefix fallback');
         final email = response['email'] ?? user.email;
         final nameFromEmail = email?.split('@')[0] ?? 'Pengguna';
         setState(() {
@@ -175,7 +167,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _userName = nameFromEmail;
           _isLoadingUser = false;
         });
-        print('[Dashboard] Using email prefix as name: $_userName');
+        print('[Dashboard] Using email prefix as fallback: $_userName');
       }
     } catch (e, stackTrace) {
       print('[Dashboard] Error loading user data: $e');
@@ -207,33 +199,87 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  void _onNavTap(int index) {
+  // Refresh user data when returning from other screens
+  void _onRoutePopped(dynamic result) {
+    print('[Dashboard] Route popped with result: $result - Refreshing user data');
+    // Trigger immediate refresh
+    _loadUserData();
+    // Trigger delayed refresh untuk ensure data loaded properly
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        print('[Dashboard] Delayed refresh - reloading user data');
+        _loadUserData();
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      print('[Dashboard] App resumed - Refreshing user data');
+      _loadUserData();
+    }
+  }
+
+  void _onNavTap(int index) async {
     if (index == _selectedIndex) return;
     
     switch (index) {
       case 0:
         // Already on Beranda, do nothing
+        setState(() {
+          _selectedIndex = index;
+        });
         break;
       case 1:
         // Navigate to Donasi screen
         print('[Dashboard] Navigate to Donasi');
-        Navigator.push(
+        setState(() {
+          _selectedIndex = index;
+        });
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const DonasiScreen()),
         );
+        // Refresh data after returning from Donasi
+        _onRoutePopped(result);
         break;
       case 2:
         // Navigate to Aksi screen
         print('[Dashboard] Navigate to Aksi');
+<<<<<<< HEAD
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const AksiScreen()),
         );
+=======
+        setState(() {
+          _selectedIndex = index;
+        });
+>>>>>>> 0c1f9ca80f444d26cd5e85b70d0463c9a8bd8654
         break;
       case 3:
-        // TODO: Navigate to Profil screen
+        // Navigate to Profil (Atur Profil)
         print('[Dashboard] Navigate to Profil');
-        // Navigator.push(context, MaterialPageRoute(builder: (context) => ProfilScreen()));
+        setState(() {
+          _selectedIndex = index;
+        });
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfileScreen()),
+        );
+        // Refresh user data immediately after returning from profile edit
+        print('[Dashboard] Returned from ProfileScreen with result: $result');
+        // Force reload data regardless of result
+        await _loadUserData();
+        // Add another delayed refresh to ensure DB sync
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (mounted) {
+          await _loadUserData();
+        }
+        setState(() {
+          _selectedIndex = 0;
+        });
         break;
     }
   }
@@ -644,6 +690,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
               currentIndex: _selectedIndex,
               onTap: _onNavTap,
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(IconData icon, String label, int index) {
+    final isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () async {
+        if (index == 3) {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const ProfileScreen(),
+            ),
+          );
+          // Refresh data user setelah kembali dari Atur Profil
+          _loadUserData();
+          return;
+        }
+        setState(() {
+          _selectedIndex = index;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF8FA3CC) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : Colors.grey[600],
+              size: 24,
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'CircularStd',
+                ),
+              ),
+            ],
           ],
         ),
       ),
