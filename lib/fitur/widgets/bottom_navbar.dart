@@ -30,8 +30,8 @@ class BottomNavBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavItem(Icons.home_rounded, 'Beranda', 0),
-              _buildNavItem(Icons.favorite_border_rounded, 'Donasi', 1),
-              _buildNavItem(Icons.grid_view_rounded, 'Aksi', 2),
+              _buildNavItem(Icons.card_giftcard_outlined, 'Donasi', 1),
+              _buildNavItem(Icons.volunteer_activism_outlined, 'Aksi', 2),
               _buildNavItem(Icons.person_outline_rounded, 'Profil', 3),
             ],
           ),

@@ -202,7 +202,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       final response = await supabase
           .from('donation_campaigns')
           .select(
-            'id, title, cover_image_url, end_time, target_amount, collected_amount',
+            'id, title, cover_image_url, end_time, description, target_amount, collected_amount, location, location_name',
           )
           .eq('status', 'active')
           .order('end_time', ascending: true)

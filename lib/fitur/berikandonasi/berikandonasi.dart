@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../utils/maps_availability.dart';
+import 'dart:convert';
 
 class BerikanDonasiScreen extends StatefulWidget {
   final Map<String, dynamic> donation;
@@ -31,10 +36,17 @@ class _BerikanDonasiScreenState extends State<BerikanDonasiScreen> {
 
   final List<String> _paymentMethods = ['OVO', 'ShopeePay', 'GoPay'];
 
+  // Map related
+  LatLng? _campaignPosition;
+  final Set<Marker> _mapMarkers = {};
+  GoogleMapController? _mapController;
+  String? _campaignLocationName;
+
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _extractCampaignLocation();
   }
 
   @override
@@ -71,6 +83,67 @@ class _BerikanDonasiScreenState extends State<BerikanDonasiScreen> {
     final now = DateTime.now();
     final difference = endTime.difference(now);
     return difference.inDays;
+  }
+
+  void _extractCampaignLocation() {
+    try {
+      final loc = widget.donation['location'];
+      double? lat;
+      double? lng;
+
+      if (loc == null) {
+        // possible we still have a human-readable location name
+        final ln = widget.donation['location_name'];
+        if (ln != null) {
+          _campaignLocationName = ln.toString();
+        }
+        final maybeLat = widget.donation['latitude'] ?? widget.donation['lat'];
+        final maybeLng = widget.donation['longitude'] ?? widget.donation['lng'];
+        if (maybeLat != null && maybeLng != null) {
+          lat = double.tryParse(maybeLat.toString());
+          lng = double.tryParse(maybeLng.toString());
+        }
+      } else if (loc is Map) {
+        final dynamic maybeLat = loc['lat'] ?? loc['latitude'] ?? (loc['location'] != null ? loc['location']['lat'] : null);
+        final dynamic maybeLng = loc['lng'] ?? loc['longitude'] ?? (loc['location'] != null ? loc['location']['lng'] : null);
+        lat = maybeLat is num ? maybeLat.toDouble() : double.tryParse(maybeLat?.toString() ?? '');
+        lng = maybeLng is num ? maybeLng.toDouble() : double.tryParse(maybeLng?.toString() ?? '');
+      } else if (loc is String) {
+        try {
+          final parsed = jsonDecode(loc) as Map<String, dynamic>;
+          final maybeLat = parsed['lat'] ?? parsed['latitude'];
+          final maybeLng = parsed['lng'] ?? parsed['longitude'];
+          lat = maybeLat is num ? maybeLat.toDouble() : double.tryParse(maybeLat?.toString() ?? '');
+          lng = maybeLng is num ? maybeLng.toDouble() : double.tryParse(maybeLng?.toString() ?? '');
+        } catch (_) {
+          // ignore
+        }
+      }
+
+      if (lat != null && lng != null) {
+        final pos = LatLng(lat, lng);
+        setState(() {
+          _campaignPosition = pos;
+          _mapMarkers.clear();
+          _mapMarkers.add(Marker(
+            markerId: const MarkerId('campaign_location'),
+            position: pos,
+            infoWindow: InfoWindow(title: _campaignLocationName ?? widget.donation['title']?.toString() ?? 'Lokasi'),
+          ));
+          // read location_name if present
+          final ln = widget.donation['location_name'] ?? loc is Map ? (loc['name'] ?? loc['location_name']) : null;
+          _campaignLocationName = ln?.toString();
+        });
+        // If map controller already exists, animate to the campaign location
+        if (_mapController != null) {
+          try {
+            _mapController!.animateCamera(CameraUpdate.newLatLng(pos));
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      print('[BerikanDonasi] Error extracting location: $e');
+    }
   }
 
   Future<void> _submitDonation() async {
@@ -324,6 +397,27 @@ class _BerikanDonasiScreenState extends State<BerikanDonasiScreen> {
                               ),
                             ],
                           ),
+                        ),
+                      ),
+
+                      // Location Map (if available)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Lokasi Kejadian',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF364057),
+                                fontFamily: 'CircularStd',
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildLocationMap(),
+                          ],
                         ),
                       ),
 
@@ -738,6 +832,140 @@ class _BerikanDonasiScreenState extends State<BerikanDonasiScreen> {
         vertical: 14,
       ),
     );
+  }
+
+  Widget _buildLocationMap() {
+    if (_campaignPosition == null) {
+      return Container(
+        height: 120,
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        alignment: Alignment.center,
+        child: const Text('Lokasi tidak tersedia'),
+      );
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 180,
+          child: isGoogleMapsAvailable()
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: GoogleMap(
+                    initialCameraPosition: CameraPosition(target: _campaignPosition!, zoom: 13),
+                    markers: _mapMarkers,
+                    onMapCreated: (c) => _mapController = c,
+                    onTap: (pos) {
+                      // center map on tap
+                      try {
+                        _mapController?.animateCamera(CameraUpdate.newLatLng(pos));
+                      } catch (_) {}
+                    },
+                    myLocationEnabled: false,
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: true,
+                    scrollGesturesEnabled: true,
+                  ),
+                )
+              : _buildMapsNotLoadedPlaceholderReadOnly(),
+        ),
+        const SizedBox(height: 8),
+        if (_campaignLocationName != null) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6.0),
+            child: Row(
+              children: [
+                const Icon(Icons.place, size: 18, color: Color(0xFF8FA3CC)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _campaignLocationName!,
+                    style: const TextStyle(fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _campaignPosition == null ? null : _openInExternalMaps,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8FA3CC),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Buka di Maps'),
+                ),
+              ],
+            ),
+          ),
+        ] else ...[
+          const SizedBox.shrink(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMapsNotLoadedPlaceholderReadOnly() {
+    return Container(
+      height: 220,
+      decoration: BoxDecoration(
+        color: Colors.red[900],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.map, color: Colors.yellow, size: 36),
+          const SizedBox(height: 12),
+          const Text(
+            'Peta tidak dimuat pada web. Tambahkan Google Maps JS API pada web/index.html dan isi GOOGLE_MAPS_API_KEY di .env',
+            style: TextStyle(color: Colors.white),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: () async {
+              final apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'];
+              final loaded = await injectGoogleMapsScript(apiKey);
+              if (loaded) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Google Maps berhasil dimuat — silakan reload halaman jika perlu')),
+                  );
+                }
+                setState(() {});
+              } else {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Gagal memuat Google Maps — periksa API key dan index.html')),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8FA3CC)),
+            child: const Text('Petunjuk setup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openInExternalMaps() async {
+    if (_campaignPosition == null) return;
+    final lat = _campaignPosition!.latitude;
+    final lng = _campaignPosition!.longitude;
+    final googleUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    try {
+      if (!await launchUrl(googleUrl, mode: LaunchMode.externalApplication)) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal membuka Maps')));
+      }
+    } catch (e) {
+      print('[BerikanDonasi] Error opening external maps: $e');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal membuka Maps')));
+    }
   }
 }
 
