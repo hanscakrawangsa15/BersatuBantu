@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
 import 'package:bersatubantu/fitur/donasi/donasi_screen.dart'; // Import donasi screen
+import 'package:bersatubantu/fitur/aksi/aksi_screen.dart';
 import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
@@ -222,9 +223,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
         break;
       case 2:
-        // TODO: Navigate to Aksi screen
+        // Navigate to Aksi screen
         print('[Dashboard] Navigate to Aksi');
-        // Navigator.push(context, MaterialPageRoute(builder: (context) => AksiScreen()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AksiScreen()),
+        );
         break;
       case 3:
         // TODO: Navigate to Profil screen

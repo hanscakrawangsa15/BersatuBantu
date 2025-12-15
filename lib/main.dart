@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:bersatubantu/providers/volunteer_event_provider.dart';
 import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
 import 'package:bersatubantu/fitur/auth/lupapassword/resetpassword.dart';
 import 'package:bersatubantu/fitur/auth/login/organization_login_screen.dart';
@@ -23,6 +27,10 @@ Future<void> main() async {
     url: dotenv.env['SUPABASE_URL'] ?? '',
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
+
+  // Initialize intl locale data for date/time formatting
+  await initializeDateFormatting('id_ID');
+  Intl.defaultLocale = 'id_ID';
 
   runApp(const MyApp());
 }
@@ -72,80 +80,79 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: _navigatorKey,
-      title: 'BersatuBantu',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primaryColor: const Color(0xFF768BBD),
-        scaffoldBackgroundColor: Colors.white,
-        fontFamily: 'CircularStd',
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF768BBD),
-          primary: const Color(0xFF768BBD),
-          secondary: const Color(0xFF364057),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => VolunteerEventProvider()),
+      ],
+      child: Builder(
+        builder: (context) => MaterialApp(
+          navigatorKey: _navigatorKey,
+          title: 'BersatuBantu',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            primaryColor: const Color(0xFF768BBD),
+            scaffoldBackgroundColor: Colors.white,
+            fontFamily: 'CircularStd',
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF768BBD),
+              primary: const Color(0xFF768BBD),
+              secondary: const Color(0xFF364057),
+            ),
+            useMaterial3: true,
+          ),
+          // Tambahkan route handler untuk web reset password
+          onGenerateRoute: (settings) {
+            print('[Router] Navigating to: ${settings.name}');
+
+            if (settings.name == '/organization_login') {
+              print('[Router] Navigating to OrganizationLoginScreen');
+              return MaterialPageRoute(
+                builder: (context) => const OrganizationLoginScreen(),
+              );
+            }
+
+            if (settings.name == '/admin_dashboard') {
+              print('[Router] Navigating to AdminDashboardScreen');
+              return MaterialPageRoute(
+                builder: (context) => const AdminDashboardScreen(),
+              );
+            }
+
+            if (settings.name == '/reset-password' ||
+                settings.name?.contains('reset-password') == true ||
+                settings.name?.contains('#/reset-password') == true) {
+              print('[Router] Detected reset-password route, navigating to ResetPasswordScreen');
+              return MaterialPageRoute(
+                builder: (context) => const ResetPasswordScreen(),
+              );
+            }
+
+            return null;
+          },
+          // Initial route berdasarkan auth state
+          home: FutureBuilder(
+            future: _checkInitialAuth(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  backgroundColor: Color(0xFF768BBD),
+                  body: Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                );
+              }
+
+              final session = supabase.auth.currentSession;
+              if (session != null) {
+                print('[Init] Has session: ${session.user.id}');
+              }
+
+              return const SplashScreen();
+            },
+          ),
         ),
-        useMaterial3: true,
-      ),
-      // Tambahkan route handler untuk web reset password
-      onGenerateRoute: (settings) {
-        print('[Router] Navigating to: ${settings.name}');
-        
-        // Handle /organization_login route
-        if (settings.name == '/organization_login') {
-          print('[Router] Navigating to OrganizationLoginScreen');
-          return MaterialPageRoute(
-            builder: (context) => const OrganizationLoginScreen(),
-          );
-        }
-        
-        // Handle /admin_dashboard route
-        if (settings.name == '/admin_dashboard') {
-          print('[Router] Navigating to AdminDashboardScreen');
-          return MaterialPageRoute(
-            builder: (context) => const AdminDashboardScreen(),
-          );
-        }
-        
-        // Handle /reset-password route dari email
-        if (settings.name == '/reset-password' || 
-            settings.name?.contains('reset-password') == true ||
-            settings.name?.contains('#/reset-password') == true) {
-          print('[Router] Detected reset-password route, navigating to ResetPasswordScreen');
-          return MaterialPageRoute(
-            builder: (context) => const ResetPasswordScreen(),
-          );
-        }
-        
-        // Default route - tidak ada yang cocok
-        return null;
-      },
-      // Initial route berdasarkan auth state
-      home: FutureBuilder(
-        future: _checkInitialAuth(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              backgroundColor: Color(0xFF768BBD),
-              body: Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-            );
-          }
-          
-          // Cek apakah ada recovery session
-          final session = supabase.auth.currentSession;
-          if (session != null) {
-            print('[Init] Has session: ${session.user.id}');
-            // Auth listener akan handle navigation ke reset password
-            // jika ini adalah recovery session
-          }
-          
-          // Default ke splash screen
-          return const SplashScreen();
-        },
       ),
     );
   }
