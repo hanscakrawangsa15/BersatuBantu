@@ -15,13 +15,32 @@ class AksiScreen extends StatefulWidget {
 
 class _AksiScreenState extends State<AksiScreen> {
   final supabase = Supabase.instance.client;
+  bool _isOrganization = false;
 
   @override
   void initState() {
     super.initState();
+    _loadUserRole();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<VolunteerEventProvider>(context, listen: false).loadOpenEvents();
     });
+  }
+
+  Future<void> _loadUserRole() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return;
+      final resp = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      final role = resp == null ? null : (resp['role'] as String?);
+      setState(() {
+        _isOrganization = (role == 'organization');
+      });
+    } catch (e) {
+      // ignore errors; default to non-organization
+      setState(() {
+        _isOrganization = false;
+      });
+    }
   }
 
   void _openEventDetail(String eventId) {
@@ -40,16 +59,18 @@ class _AksiScreenState extends State<AksiScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF8FA3CC),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF768BBD),
-        onPressed: () {
-          Navigator.push(
-              context,
-              MaterialPageRoute(builder: (c) => const PostingKegiatanDonasiScreen()),
-            );
-        },
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _isOrganization
+          ? FloatingActionButton(
+              backgroundColor: const Color(0xFF768BBD),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (c) => const PostingKegiatanDonasiScreen()),
+                );
+              },
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: SafeArea(
         child: Column(
           children: [

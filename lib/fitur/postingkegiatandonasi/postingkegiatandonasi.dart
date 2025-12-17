@@ -52,6 +52,38 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
     super.dispose();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _ensureUserIsOrganization();
+  }
+
+  Future<void> _ensureUserIsOrganization() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return;
+      final resp = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      final role = resp == null ? null : (resp['role'] as String?);
+      if (role != 'organization') {
+        if (mounted) {
+          await showDialog<void>(
+            context: context,
+            builder: (c) => AlertDialog(
+              title: const Text('Akses Ditolak'),
+              content: const Text('Hanya akun organisasi yang dapat memposting kegiatan.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.of(c).pop(), child: const Text('Tutup')),
+              ],
+            ),
+          );
+          Navigator.of(context).maybePop();
+        }
+      }
+    } catch (e) {
+      print('[PostingDonasi] Role check failed: $e');
+    }
+  }
+
 
 
   Future<void> _pickImage() async {
