@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
+import 'package:bersatubantu/fitur/postingdonasi/donasi_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -17,6 +18,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _selectedCategory = 'Semua';
   String _userName = '';
   bool _isLoadingUser = true;
+  String _userRole = 'user'; 
+  String _userId = '';
+
 
   final List<String> _categories = [
     'Semua',
@@ -127,7 +131,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       
       final response = await supabase
           .from('profiles')
-          .select('full_name, email, id')
+          .select('full_name, email, id, role')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -147,6 +151,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             setState(() {
               _userName = nameString;
               _isLoadingUser = false;
+              _userId = response['id'];
+              _userRole = (response['role'] ?? 'user')
+              .toString()
+              .trim()
+              .toLowerCase();
             });
             print('[Dashboard] Successfully loaded user name: $_userName');
             return;
@@ -294,63 +303,125 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             // Content Container
             Expanded(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30),
-                    topRight: Radius.circular(30),
+              child: IndexedStack(
+                index: _selectedIndex,
+                children: [
+                
+                  _buildHomePage(),
+
+              
+                  DonasiScreen(
+                    key: ValueKey(_userRole + _userId),
+                    userRole: _userRole,
+                    userId: _userId,
+                  ),
+
+                  
+                  Center(
+                    child: Text("Halaman Aksi (belum dibuat)"),
+                  ),
+
+                  
+                  Center(
+                    child: Text("Profil"),
+                  ),
+                ],
+              ),
+            ),
+
+
+            // Bottom Navigation
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildNavItem(Icons.home_rounded, 'Beranda', 0),
+                      _buildNavItem(Icons.volunteer_activism_rounded, 'Donasi', 1),
+                      _buildNavItem(Icons.handshake_rounded, 'Aksi', 2),
+                      _buildNavItem(Icons.person_outline_rounded, 'Profil', 3),
+                    ],
                   ),
                 ),
-                child: Column(
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomePage() {
+    return Container(
+      color: const Color(0xFF8FA3CC),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(30),
+            topRight: Radius.circular(30),
+          ),
+        ),
+
+        child: Column(
+          children: [
+            // Search Bar
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F6FA),
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: Row(
                   children: [
-                    // Search Bar
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF5F6FA),
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.search, color: Colors.grey[400]),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                decoration: InputDecoration(
-                                  hintText: 'Telusuri',
-                                  hintStyle: TextStyle(
-                                    color: Colors.grey[400],
-                                    fontFamily: 'CircularStd',
-                                  ),
-                                  border: InputBorder.none,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                    Icon(Icons.search, color: Colors.grey[400]),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        decoration: InputDecoration(
+                          hintText: 'Telusuri',
+                          hintStyle: TextStyle(
+                            color: Colors.grey[400],
+                            fontFamily: 'CircularStd',
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
                     ),
+                  ],
+                ),
+              ),
+            ),
 
-                    // Berita Title
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Berita',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF364057),
-                            fontFamily: 'CircularStd',
-                          ),
-                        ),
+            // MAIN CONTENT
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Berita',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF364057),
+                        fontFamily: 'CircularStd',
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -360,7 +431,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       height: 40,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _categories.length,
                         itemBuilder: (context, index) {
                           final isSelected = _selectedCategory == _categories[index];
@@ -395,240 +465,204 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
 
-                    // Scrollable Content
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Berita Terbaru Section
-                            const Text(
-                              'Berita Terbaru',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF364057),
-                                fontFamily: 'CircularStd',
-                              ),
-                            ),
-                            const SizedBox(height: 12),
+                    const SizedBox(height: 24),
 
-                            // Featured News Cards
-                            SizedBox(
-                              height: 200,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: _featuredNews.length,
-                                itemBuilder: (context, index) {
-                                  final news = _featuredNews[index];
-                                  return Container(
-                                    width: 280,
-                                    margin: const EdgeInsets.only(right: 12),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF4A5E7C),
-                                      borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.1),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(16),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.end,
-                                        children: [
-                                          Text(
-                                            news['title'],
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              fontFamily: 'CircularStd',
-                                            ),
-                                            maxLines: 3,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Row(
-                                            children: [
-                                              Text(
-                                                news['date'],
-                                                style: TextStyle(
-                                                  color: Colors.white.withOpacity(0.8),
-                                                  fontSize: 11,
-                                                  fontFamily: 'CircularStd',
-                                                ),
-                                              ),
-                                              if (news['time'] != null) ...[
-                                                Text(
-                                                  ' — ${news['time']}',
-                                                  style: TextStyle(
-                                                    color: Colors.white.withOpacity(0.8),
-                                                    fontSize: 11,
-                                                    fontFamily: 'CircularStd',
-                                                  ),
-                                                ),
-                                              ],
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            news['source'],
-                                            style: TextStyle(
-                                              color: Colors.white.withOpacity(0.8),
-                                              fontSize: 11,
-                                              fontFamily: 'CircularStd',
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: 24),
+                    // Featured News
+                    const Text(
+                      'Berita Terbaru',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF364057),
+                        fontFamily: 'CircularStd',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
 
-                            // Terpopuler Section
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Terpopuler',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF364057),
-                                    fontFamily: 'CircularStd',
-                                  ),
-                                ),
-                                Text(
-                                  'Lihat Semua',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.grey[600],
-                                    fontFamily: 'CircularStd',
-                                  ),
+                    SizedBox(
+                      height: 200,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _featuredNews.length,
+                        itemBuilder: (context, index) {
+                          final news = _featuredNews[index];
+                          return Container(
+                            width: 280,
+                            margin: const EdgeInsets.only(right: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4A5E7C),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
-
-                            // Popular News Grid
-                            GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: 0.75,
-                              ),
-                              itemCount: _popularNews.length,
-                              itemBuilder: (context, index) {
-                                final news = _popularNews[index];
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[300],
-                                    borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    news['title'],
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'CircularStd',
+                                    ),
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  child: Column(
+                                  const SizedBox(height: 12),
+                                  Row(
                                     children: [
-                                      Expanded(
-                                        flex: 3,
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey[400],
-                                            borderRadius: const BorderRadius.only(
-                                              topLeft: Radius.circular(12),
-                                              topRight: Radius.circular(12),
-                                            ),
-                                          ),
-                                          child: Center(
-                                            child: Icon(
-                                              Icons.image,
-                                              color: Colors.grey[600],
-                                              size: 40,
-                                            ),
-                                          ),
+                                      Text(
+                                        news['date'],
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.8),
+                                          fontSize: 11,
+                                          fontFamily: 'CircularStd',
                                         ),
                                       ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(8),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  news['title'],
-                                                  style: const TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Color(0xFF364057),
-                                                    fontFamily: 'CircularStd',
-                                                  ),
-                                                  maxLines: 3,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                news['source'],
-                                                style: TextStyle(
-                                                  fontSize: 9,
-                                                  color: Colors.grey[600],
-                                                  fontFamily: 'CircularStd',
-                                                ),
-                                              ),
-                                            ],
+                                      if (news['time'] != null) ...[
+                                        Text(
+                                          ' — ${news['time']}',
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(0.8),
+                                            fontSize: 11,
+                                            fontFamily: 'CircularStd',
                                           ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    news['source'],
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.8),
+                                      fontSize: 11,
+                                      fontFamily: 'CircularStd',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Popular News Title
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Terpopuler',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF364057),
+                            fontFamily: 'CircularStd',
+                          ),
+                        ),
+                        Text(
+                          'Lihat Semua',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                            fontFamily: 'CircularStd',
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Popular News Grid
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 0.75,
+                      ),
+                      itemCount: _popularNews.length,
+                      itemBuilder: (context, index) {
+                        final news = _popularNews[index];
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[400],
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(12),
+                                      topRight: Radius.circular(12),
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.image,
+                                      color: Colors.grey[600],
+                                      size: 40,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          news['title'],
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF364057),
+                                            fontFamily: 'CircularStd',
+                                          ),
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        news['source'],
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          color: Colors.grey[600],
+                                          fontFamily: 'CircularStd',
                                         ),
                                       ),
                                     ],
                                   ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                   ],
-                ),
-              ),
-            ),
-
-            // Bottom Navigation
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildNavItem(Icons.home_rounded, 'Beranda', 0),
-                      _buildNavItem(Icons.favorite_border_rounded, 'Favorit', 1),
-                      _buildNavItem(Icons.grid_view_rounded, 'Kategori', 2),
-                      _buildNavItem(Icons.person_outline_rounded, 'Profil', 3),
-                    ],
-                  ),
                 ),
               ),
             ),
@@ -637,6 +671,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+
 
   Widget _buildNavItem(IconData icon, String label, int index) {
     final isSelected = _selectedIndex == index;
