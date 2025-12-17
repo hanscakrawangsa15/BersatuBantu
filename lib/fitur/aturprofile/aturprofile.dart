@@ -5,6 +5,10 @@ import 'package:bersatubantu/fitur/aturprofile/account_settings_screen.dart';
 import 'package:bersatubantu/fitur/aturprofile/donation_history_screen.dart';
 import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
 import 'package:bersatubantu/fitur/donasi/donasi_screen.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 // ------------------------------------------------------------------
 // 1. MAIN & INISIALISASI
@@ -399,6 +403,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   
   final supabase = Supabase.instance.client;
   bool _isLoading = false;
+  
+  // Photo variables
+  XFile? _selectedImage;
+  String? _currentPhotoUrl;
+  final ImagePicker _imagePicker = ImagePicker();
+  bool _isUploadingPhoto = false;
+
+  // Fungsi untuk check dan request permissions
+  Future<bool> _checkPhotoPermissions() async {
+    try {
+      print('[EditProfile] Checking photo permissions...');
+      // Permissions akan di-handle otomatis oleh image_picker
+      return true;
+    } catch (e) {
+      print('[EditProfile] Permission error: $e');
+      return false;
+    }
+  }
 
   @override
   void initState() {
@@ -429,10 +451,148 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _fullNameController.text = data['full_name'] ?? '';
           _emailController.text = data['email'] ?? user.email ?? '';
           _phoneController.text = data['phone'] ?? '';
+          _currentPhotoUrl = data['photo'] ?? '';
         });
       } catch (e) {
         // Handle jika data tidak ada
+        print('[EditProfile] Error loading profile data: $e');
       }
+    }
+  }
+
+  // PICK IMAGE FROM GALLERY OR CAMERA
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final isGallery = source == ImageSource.gallery;
+      print('[EditProfile] Picking image from ${isGallery ? 'gallery' : 'camera'} (Web: $kIsWeb)');
+      
+      final XFile? image = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 80,
+      );
+      
+      if (image != null && image.path.isNotEmpty) {
+        print('[EditProfile] Image selected: ${image.name}');
+        print('[EditProfile] Image path: ${image.path}');
+        print('[EditProfile] Is web: $kIsWeb');
+        
+        // For web, we can use blob URL directly. For mobile, validate file
+        bool isValidImage = true;
+        if (!kIsWeb) {
+          final file = File(image.path);
+          isValidImage = file.existsSync();
+          if (isValidImage) {
+            print('[EditProfile] File verified: ${file.lengthSync()} bytes');
+          } else {
+            throw 'File tidak ditemukan: ${image.path}';
+          }
+        } else {
+          print('[EditProfile] Web platform - using blob URL directly');
+        }
+        
+        if (isValidImage && mounted) {
+          setState(() {
+            _selectedImage = image;
+          });
+          
+          print('[EditProfile] State updated with new image');
+          
+          // Show success message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✓ Foto berhasil dipilih'),
+                duration: Duration(seconds: 2),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      } else {
+        print('[EditProfile] No image selected or path empty');
+      }
+    } on UnsupportedError catch (e) {
+      print('[EditProfile] UnsupportedError: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Fitur foto tidak tersedia'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      print('[EditProfile] Error picking image: $e');
+      print('[EditProfile] Stack trace: $stackTrace');
+      print('[EditProfile] Error type: ${e.runtimeType}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal memilih foto: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  // UPLOAD IMAGE TO SUPABASE STORAGE
+  Future<String?> _uploadPhotoToStorage(XFile imageFile) async {
+    try {
+      setState(() => _isUploadingPhoto = true);
+      
+      final user = supabase.auth.currentUser;
+      if (user == null) throw 'User not authenticated';
+      
+      // Create unique file path
+      final fileName = 'profile_${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final filePath = 'profiles/$fileName';
+      
+      print('[EditProfile] Uploading photo to: $filePath');
+      print('[EditProfile] Is web: $kIsWeb');
+      
+      late List<int> fileBytes;
+      
+      // Handle web and mobile differently
+      if (kIsWeb) {
+        print('[EditProfile] Uploading from web...');
+        // For web, read bytes directly from XFile
+        fileBytes = await imageFile.readAsBytes();
+      } else {
+        print('[EditProfile] Uploading from mobile...');
+        // For mobile, read from file system
+        final file = File(imageFile.path);
+        fileBytes = await file.readAsBytes();
+      }
+      
+      print('[EditProfile] File size: ${fileBytes.length} bytes');
+      
+      // Upload to Supabase Storage
+      await supabase.storage.from('profile').uploadBinary(
+        filePath,
+        Uint8List.fromList(fileBytes),
+        fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+      );
+      
+      // Get public URL
+      final publicUrl = supabase.storage.from('profile').getPublicUrl(filePath);
+      print('[EditProfile] Photo uploaded successfully: $publicUrl');
+      
+      return publicUrl;
+    } catch (e, stackTrace) {
+      print('[EditProfile] Error uploading photo: $e');
+      print('[EditProfile] Stack trace: $stackTrace');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal upload foto: $e')),
+        );
+      }
+      return null;
+    } finally {
+      setState(() => _isUploadingPhoto = false);
     }
   }
 
@@ -444,14 +604,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final user = supabase.auth.currentUser;
       if (user == null) throw "User not logged in";
 
+      // Upload photo jika ada yang dipilih
+      String? photoUrl = _currentPhotoUrl;
+      if (_selectedImage != null) {
+        print('[EditProfile] Uploading new photo...');
+        photoUrl = await _uploadPhotoToStorage(_selectedImage!);
+        if (photoUrl == null) {
+          throw 'Gagal upload foto';
+        }
+      }
+
       // Kirim Data Asli ke Supabase
-      await supabase.from('profiles').upsert({
+      final updateData = {
         'id': user.id,
         'full_name': _fullNameController.text,
         'email': _emailController.text,
         'phone': _phoneController.text,
         'updated_at': DateTime.now().toIso8601String(),
-      });
+      };
+      
+      // Include photo URL jika ada
+      if (photoUrl != null && photoUrl.isNotEmpty) {
+        updateData['photo'] = photoUrl;
+      }
+      
+      print('[EditProfile] Updating profile with data: $updateData');
+      await supabase.from('profiles').upsert(updateData);
 
       if (mounted) {
         // Show success message
@@ -539,33 +717,163 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // --- FOTO PROFIL ---
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 35,
-                        backgroundColor: Color(0xFF768BBD),
-                        child: Icon(Icons.person, size: 40, color: Colors.white),
-                      ),
-                      const SizedBox(width: 15),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(children: [
-                            ElevatedButton(
-                              onPressed: (){}, 
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[200], elevation: 0, foregroundColor: Colors.black), 
-                              child: const Text("Upload Foto", style: TextStyle(fontSize: 12))
+                  Center(
+                    child: Column(
+                      children: [
+                        // Photo preview
+                        GestureDetector(
+                          onTap: () {
+                            if (_selectedImage != null) {
+                              print('[EditProfile] Tapped on preview image: ${_selectedImage!.path}');
+                            }
+                          },
+                          child: _selectedImage != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(60),
+                                  child: kIsWeb
+                                      ? Image.network(
+                                          _selectedImage!.path,
+                                          width: 120,
+                                          height: 120,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            print('[EditProfile] Error loading image: $error');
+                                            return Container(
+                                              width: 120,
+                                              height: 120,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: Colors.grey[300],
+                                                border: Border.all(color: const Color(0xFF768BBD), width: 2),
+                                              ),
+                                              child: const Icon(Icons.error, size: 40, color: Colors.red),
+                                            );
+                                          },
+                                        )
+                                      : Image.file(
+                                          File(_selectedImage!.path),
+                                          width: 120,
+                                          height: 120,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            print('[EditProfile] Error loading image: $error');
+                                            return Container(
+                                              width: 120,
+                                              height: 120,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: Colors.grey[300],
+                                                border: Border.all(color: const Color(0xFF768BBD), width: 2),
+                                              ),
+                                              child: const Icon(Icons.error, size: 40, color: Colors.red),
+                                            );
+                                          },
+                                        ),
+                                )
+                              : Container(
+                                  width: 120,
+                                  height: 120,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.grey[200],
+                                    border: Border.all(color: const Color(0xFF768BBD), width: 2),
+                                    image: (_currentPhotoUrl != null && _currentPhotoUrl!.isNotEmpty)
+                                        ? DecorationImage(
+                                            image: NetworkImage(_currentPhotoUrl!),
+                                            fit: BoxFit.cover,
+                                            onError: (exception, stackTrace) {
+                                              print('[EditProfile] Error loading network image: $exception');
+                                            },
+                                          )
+                                        : null,
+                                  ),
+                                  child: (_currentPhotoUrl == null || _currentPhotoUrl!.isEmpty)
+                                      ? const Icon(Icons.camera_alt, size: 48, color: Color(0xFF768BBD))
+                                      : null,
+                                ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Upload buttons
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _isUploadingPhoto
+                                  ? null
+                                  : () async {
+                                      print('[EditProfile] Opening gallery');
+                                      try {
+                                        await _pickImage(ImageSource.gallery);
+                                      } catch (e) {
+                                        print('[EditProfile] Gallery error: $e');
+                                      }
+                                    },
+                              icon: const Icon(Icons.image),
+                              label: const Text("Pilih Foto"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey[300],
+                                foregroundColor: Colors.black,
+                                elevation: 0,
+                                disabledBackgroundColor: Colors.grey[400],
+                              ),
                             ),
                             const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: (){}, 
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[200], elevation: 0, foregroundColor: Colors.black), 
-                              child: const Text("Ambil Foto", style: TextStyle(fontSize: 12))
+                            ElevatedButton.icon(
+                              onPressed: _isUploadingPhoto
+                                  ? null
+                                  : () async {
+                                      print('[EditProfile] Opening camera');
+                                      try {
+                                        await _pickImage(ImageSource.camera);
+                                      } catch (e) {
+                                        print('[EditProfile] Camera error: $e');
+                                      }
+                                    },
+                              icon: const Icon(Icons.camera_alt),
+                              label: const Text("Ambil Foto"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey[300],
+                                foregroundColor: Colors.black,
+                                elevation: 0,
+                                disabledBackgroundColor: Colors.grey[400],
+                              ),
                             ),
-                          ])
-                        ],
-                      )
-                    ],
+                          ],
+                        ),
+                        if (_selectedImage != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green[100],
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '✓ Foto baru: ${_selectedImage!.name}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.green[700],
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Foto akan di-upload saat Anda klik Simpan',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey[600],
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 30),
 
