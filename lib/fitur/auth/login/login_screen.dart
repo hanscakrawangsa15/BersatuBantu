@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bersatubantu/fitur/auth/register/register_screen.dart';
+import 'package:bersatubantu/fitur/auth/lupapassword/lupapassword.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/pilihrole/role_selection_screen.dart';
 import 'package:bersatubantu/services/debug_auth_screen.dart';
+import 'package:bersatubantu/fitur/loading/loading_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final String? selectedRole; // 'user' atau 'volunteer' dari RoleSelection pre-auth
+  const LoginScreen({super.key, this.selectedRole});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -114,56 +117,51 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } else {
-        // Profile exists, check if user has selected role
-        final userRole = profileResponse['role'];
-        print('[Login] User role: "$userRole"');
-        print('[Login] User role type: ${userRole.runtimeType}');
-        
-        // Check if role is null, empty, or 'null' string
-        final roleIsEmpty = userRole == null || 
-                           userRole.toString().trim().isEmpty ||
-                           userRole.toString().toLowerCase() == 'null';
-        
-        print('[Login] Role is empty: $roleIsEmpty');
-        
-        if (roleIsEmpty) {
-          // Navigate to role selection if role not set
-          print('[Login] No role found, navigating to role selection');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Silakan pilih peran Anda'),
-                backgroundColor: Colors.blue,
-                duration: Duration(seconds: 2),
-              ),
-            );
-            
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => RoleSelectionScreen(userId: response.user!.id),
-              ),
-            );
+        // Profile exists
+        var userRole = profileResponse['role'];
+        print('[Login] User role in profile: "$userRole" (type: ${userRole.runtimeType})');
+
+        // Jika role belum di-set di DB tetapi kita punya selectedRole dari pre-auth, set sekarang
+        final roleIsEmpty = userRole == null || userRole.toString().trim().isEmpty || userRole.toString().toLowerCase() == 'null';
+        if (roleIsEmpty && widget.selectedRole != null) {
+          final chosen = widget.selectedRole!;
+          print('[Login] Applying pre-auth selectedRole "$chosen" to profile');
+          try {
+            await supabase
+                .from('profiles')
+                .update({'role': chosen})
+                .eq('id', response.user!.id);
+            userRole = chosen; // update variable untuk routing
+          } catch (e) {
+            print('[Login] Failed to update role after login: $e');
           }
+        }
+
+        if (!mounted) return;
+
+        // Route berdasarkan role akhir
+        if (userRole == 'user') {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const LoadingScreen()),
+          );
+        } else if (userRole == 'volunteer') {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const LoadingScreen()),
+          );
         } else {
-          // Role already set, navigate directly to loading screen
-          print('[Login] Role found: $userRole, showing success and navigating to loading screen');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Selamat datang kembali, ${profileResponse['full_name']}!'),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-            
-            // Navigate to loading screen (import at top: import 'package:bersatubantu/fitur/loading/loading_screen.dart';)
-            // For now, using role selection which will redirect to loading
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => RoleSelectionScreen(userId: response.user!.id),
-              ),
-            );
-          }
+          // Jika tetap kosong, fallback minta pilih role
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Silakan pilih peran Anda'),
+              backgroundColor: Colors.blue,
+              duration: Duration(seconds: 2),
+            ),
+          );
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => RoleSelectionScreen(userId: response.user!.id),
+            ),
+          );
         }
       }
     } on AuthException catch (e) {
@@ -451,7 +449,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           GestureDetector(
                             onTap: () {
-                              // TODO: Implement forgot password
+                              HapticFeedback.lightImpact();
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const ForgotPasswordScreen(),
+                                ),
+                              );
                             },
                             child: const Text(
                               'Lupa Password?',

@@ -125,9 +125,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (value == null || value.isEmpty) {
       return 'Konfirmasi password tidak boleh kosong';
     }
-    if (value != _passwordController.text) {
-      return 'Password tidak sama';
-    }
     return null;
   }
 
@@ -174,28 +171,103 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // No need to store password_hash, Supabase Auth handles it
       try {
         print('[Register] Inserting profile for user: ${response.user!.id}');
-        
-        await supabase.from('profiles').insert({
-          'id': response.user!.id,
-          'full_name': _nameController.text.trim(),
-          'email': _emailController.text.trim(),
-          'role': null,
-        });
-        
-        print('[Register] Profile inserted successfully');
+
+        // Try insertion with retries because sometimes the user record in the
+        // referenced `users` table may not have propagated yet, causing a
+        // foreign-key violation. We'll retry several times with exponential backoff.
+        final int maxAttempts = 10;
+        int attempt = 0;
+        bool inserted = false;
+        while (attempt < maxAttempts && !inserted) {
+          try {
+            attempt += 1;
+            await supabase.from('profiles').insert({
+              'id': response.user!.id,
+              'full_name': _nameController.text.trim(),
+              'email': _emailController.text.trim(),
+              // Do not assign a role at registration; let the user choose a role later.
+              'role': null,
+            });
+            inserted = true;
+            print('[Register] Profile inserted successfully on attempt $attempt');
+            break;
+          } catch (e) {
+            final msg = e.toString();
+            // If foreign key error (user row not present yet) then instead of
+            // repeatedly attempting inserts (which will fail until auth.users exists),
+            // poll for the profile row created by the trigger on auth.users.
+            if (msg.contains('violates foreign key constraint') || msg.contains('is not present in table "users"') || msg.contains('profiles_id_fkey')) {
+              print('[Register] FK error detected while inserting profile (attempt $attempt). Polling for profile row instead of re-inserting...');
+
+              // Poll for the profile row created by the DB trigger
+              final int pollAttempts = 10;
+              final int pollDelayMs = 300; // start small
+              bool found = false;
+              for (int p = 0; p < pollAttempts; p++) {
+                try {
+                  final profile = await supabase.from('profiles').select('id').eq('id', response.user!.id).maybeSingle();
+                  if (profile != null) {
+                    print('[Register] Profile row detected by poll at attempt ${p + 1}');
+                    found = true;
+                    inserted = true;
+                    break;
+                  }
+                } catch (e) {
+                  print('[Register] Polling error: $e');
+                }
+                await Future.delayed(Duration(milliseconds: pollDelayMs));
+              }
+
+              if (found) break; // exit outer while
+
+              // If polling did not find a profile, continue with exponential backoff insert attempts
+              final waitMs = 300 * (1 << (attempt - 1)); // exponential backoff
+              final cappedWait = waitMs > 3000 ? 3000 : waitMs; // cap at 3s per attempt
+              print('[Register] Profile not found after polling. Waiting ${cappedWait}ms and retrying insert...');
+              await Future.delayed(Duration(milliseconds: cappedWait));
+              continue;
+            }
+
+            // For other errors, break and fallback to upsert below
+            print('[Register] Non-FK error inserting profile: $e');
+            break;
+          }
+        }
+
+
+        if (!inserted) {
+          print('[Register] Insert attempts exhausted or skipped; trying upsert as fallback');
+          try {
+            await supabase.from('profiles').upsert({
+              'id': response.user!.id,
+              'full_name': _nameController.text.trim(),
+              'email': _emailController.text.trim(),
+              // Do not assign a role at registration; let the user choose a role later.
+              'role': null,
+            });
+            print('[Register] Profile upserted successfully');
+            inserted = true;
+          } catch (e) {
+            print('[Register] Profile upsert failed: $e');
+          }
+        }
+
+        if (!inserted) {
+          // We couldn't create the profile automatically. Inform the user but
+          // don't roll back the created Auth user — the account exists.
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Akun dibuat tetapi profil belum berhasil dibuat. Silakan login dan hubungi administrator jika perlu.'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 6),
+              ),
+            );
+          }
+        }
       } catch (profileError) {
-        // If profile insert fails, try with upsert
-        print('[Register] Profile insert error: $profileError');
-        print('[Register] Trying upsert...');
-        
-        await supabase.from('profiles').upsert({
-          'id': response.user!.id,
-          'full_name': _nameController.text.trim(),
-          'email': _emailController.text.trim(),
-          'role': null,
-        });
-        
-        print('[Register] Profile upserted successfully');
+        // This outer catch is defensive — most work is handled above.
+        print('[Register] Unexpected profile insertion error: $profileError');
       }
 
       if (!mounted) return;
@@ -251,6 +323,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         errorMessage = 'Terjadi kesalahan server. Silakan hubungi administrator untuk mengatur RLS policy.';
       } else if (e.toString().contains('relation "profiles" does not exist')) {
         errorMessage = 'Tabel profiles belum dibuat. Hubungi administrator.';
+      } else if (e.toString().contains('profiles_role_check') || e.toString().contains('violates check constraint')) {
+        errorMessage = 'Role tidak valid untuk tabel profiles. Pastikan kolom `role` berisi nilai yang diperbolehkan atau kosong.';
       } else {
         errorMessage = 'Registrasi gagal: ${e.toString()}';
       }

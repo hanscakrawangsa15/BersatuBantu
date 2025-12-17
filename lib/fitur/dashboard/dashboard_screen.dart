@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
+import 'package:bersatubantu/fitur/donasi/donasi_screen.dart'; // Import donasi screen
+import 'package:bersatubantu/fitur/berikandonasi/berikandonasi.dart';
 import 'dart:async';
+import 'package:bersatubantu/fitur/aturprofile/aturprofile.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -9,20 +13,23 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   final supabase = Supabase.instance.client;
   late final StreamSubscription<AuthState> _authSubscription;
-  
+
   int _selectedIndex = 0;
   String _selectedCategory = 'Semua';
   String _userName = '';
   bool _isLoadingUser = true;
+  // Campaigns
+  bool _isLoadingCampaigns = true;
+  List<Map<String, dynamic>> _campaigns = [];
 
   final List<String> _categories = [
     'Semua',
     'Bencana Alam',
     'Kemiskinan',
-    'Hak Asasi'
+    'Hak Asasi',
   ];
 
   final List<Map<String, dynamic>> _featuredNews = [
@@ -63,6 +70,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     
+    // Register WidgetsBindingObserver untuk track lifecycle
+    WidgetsBinding.instance.addObserver(this);
+
     // Listen to auth state changes
     _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
       final session = data.session;
@@ -77,14 +87,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         });
       }
     });
-    
+
     // Initial load
     _loadUserData();
+    _loadCampaigns();
   }
 
   @override
   void dispose() {
     _authSubscription.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -96,7 +108,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       // Get current user ID from auth
       final user = supabase.auth.currentUser;
-      
+
       if (user == null) {
         print('[Dashboard] No authenticated user found');
         setState(() {
@@ -109,22 +121,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       print('[Dashboard] Current user ID: ${user.id}');
       print('[Dashboard] User email: ${user.email}');
 
-      // Try to get full_name from user metadata first (if stored during signup)
-      if (user.userMetadata?['full_name'] != null) {
-        final metadataName = user.userMetadata!['full_name'] as String;
-        if (metadataName.isNotEmpty) {
-          print('[Dashboard] Found name in metadata: $metadataName');
-          setState(() {
-            _userName = metadataName;
-            _isLoadingUser = false;
-          });
-          return;
-        }
-      }
+      // Query profiles table with the user ID - ALWAYS CHECK DATABASE FIRST
+      print('[Dashboard] Querying profiles table for fresh data from user ID: ${user.id}');
 
-      // Query profiles table with the user ID
-      print('[Dashboard] Querying profiles table for user ID: ${user.id}');
-      
       final response = await supabase
           .from('profiles')
           .select('full_name, email, id')
@@ -135,26 +134,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       if (response != null) {
         print('[Dashboard] Profile found in database');
-        
+
         final fullName = response['full_name'];
-        print('[Dashboard] Full name value: "$fullName" (type: ${fullName.runtimeType})');
-        
+        print(
+          '[Dashboard] Full name value: "$fullName" (type: ${fullName.runtimeType})',
+        );
+
         if (fullName != null) {
           final nameString = fullName.toString().trim();
           print('[Dashboard] After trim: "$nameString"');
-          
+
           if (nameString.isNotEmpty) {
             setState(() {
               _userName = nameString;
               _isLoadingUser = false;
             });
-            print('[Dashboard] Successfully loaded user name: $_userName');
+            print('[Dashboard] Successfully loaded user name from DB: $_userName');
             return;
           }
         }
-        
-        // Fallback: Try to get from email
-        print('[Dashboard] full_name is null or empty, using email fallback');
+
+        // Fallback: Try email prefix
+        print('[Dashboard] full_name is null or empty, using email prefix fallback');
         final email = response['email'] ?? user.email;
         final nameFromEmail = email?.split('@')[0] ?? 'Pengguna';
         setState(() {
@@ -164,25 +165,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
         print('[Dashboard] Using email prefix: $_userName');
       } else {
         // Profile not found in database
-        print('[Dashboard] No profile found in database for user ID: ${user.id}');
-        
+        print(
+          '[Dashboard] No profile found in database for user ID: ${user.id}',
+        );
+
         final email = user.email;
         final nameFromEmail = email?.split('@')[0] ?? 'Pengguna';
         setState(() {
           _userName = nameFromEmail;
           _isLoadingUser = false;
         });
-        print('[Dashboard] Using email prefix as name: $_userName');
+        print('[Dashboard] Using email prefix as fallback: $_userName');
       }
     } catch (e, stackTrace) {
       print('[Dashboard] Error loading user data: $e');
       print('[Dashboard] Stack trace: $stackTrace');
-      
+
       // Fallback to email prefix
       final user = supabase.auth.currentUser;
       final email = user?.email;
       final nameFromEmail = email?.split('@')[0] ?? 'Pengguna';
-      
+
       setState(() {
         _userName = nameFromEmail;
         _isLoadingUser = false;
@@ -190,9 +193,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _loadCampaigns() async {
+    setState(() {
+      _isLoadingCampaigns = true;
+    });
+
+    try {
+      final response = await supabase
+          .from('donation_campaigns')
+          .select(
+            'id, title, cover_image_url, end_time, description, target_amount, collected_amount, location, location_name',
+          )
+          .eq('status', 'active')
+          .order('end_time', ascending: true)
+          .limit(50);
+
+      if (response != null && response is List) {
+        setState(() {
+          _campaigns = List<Map<String, dynamic>>.from(response);
+        });
+      } else {
+        setState(() {
+          _campaigns = [];
+        });
+      }
+    } catch (e) {
+      print('[Dashboard] Error loading campaigns: $e');
+      setState(() {
+        _campaigns = [];
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingCampaigns = false;
+        });
+      }
+    }
+  }
+
+  // Returns a pair: formatted string and daysLeft (rounded down)
+  Map<String, dynamic> _remainingUntil(String? endTimeStr) {
+    if (endTimeStr == null) return {'text': 'Tidak tersedia', 'days': null};
+
+    try {
+      final end = DateTime.parse(endTimeStr).toLocal();
+      final now = DateTime.now();
+      final diff = end.difference(now);
+      final days = diff.inDays;
+      if (diff.isNegative) {
+        return {'text': 'Selesai', 'days': days};
+      }
+      if (days >= 1) {
+        return {'text': '$days hari lagi', 'days': days};
+      }
+      final hours = diff.inHours;
+      if (hours >= 1) return {'text': '$hours jam lagi', 'days': 0};
+      final minutes = diff.inMinutes;
+      return {'text': '$minutes menit lagi', 'days': 0};
+    } catch (e) {
+      return {'text': 'Tidak tersedia', 'days': null};
+    }
+  }
+
   String _getGreeting() {
     final hour = DateTime.now().hour;
-    
+
     if (hour >= 5 && hour < 11) {
       return 'Selamat pagi,';
     } else if (hour >= 11 && hour < 15) {
@@ -200,7 +265,85 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } else if (hour >= 15 && hour < 18) {
       return 'Selamat sore,';
     } else {
-      return 'Selamat malam, ';
+      return 'Selamat malam,';
+    }
+  }
+
+  // Refresh user data when returning from other screens
+  void _onRoutePopped(dynamic result) {
+    print('[Dashboard] Route popped with result: $result - Refreshing user data');
+    // Trigger immediate refresh
+    _loadUserData();
+    // Trigger delayed refresh untuk ensure data loaded properly
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        print('[Dashboard] Delayed refresh - reloading user data');
+        _loadUserData();
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      print('[Dashboard] App resumed - Refreshing user data');
+      _loadUserData();
+    }
+  }
+
+  void _onNavTap(int index) async {
+    if (index == _selectedIndex) return;
+
+    switch (index) {
+      case 0:
+        // Already on Beranda, do nothing
+        setState(() {
+          _selectedIndex = index;
+        });
+        break;
+      case 1:
+        // Navigate to Donasi screen
+        print('[Dashboard] Navigate to Donasi');
+        setState(() {
+          _selectedIndex = index;
+        });
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const DonasiScreen()),
+        );
+        // Refresh data after returning from Donasi
+        _onRoutePopped(result);
+        break;
+      case 2:
+        // TODO: Navigate to Aksi screen
+        print('[Dashboard] Navigate to Aksi');
+        setState(() {
+          _selectedIndex = index;
+        });
+        break;
+      case 3:
+        // Navigate to Profil (Atur Profil)
+        print('[Dashboard] Navigate to Profil');
+        setState(() {
+          _selectedIndex = index;
+        });
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfileScreen()),
+        );
+        // Refresh user data immediately after returning from profile edit
+        print('[Dashboard] Returned from ProfileScreen with result: $result');
+        // Force reload data regardless of result
+        await _loadUserData();
+        // Add another delayed refresh to ensure DB sync
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (mounted) {
+          await _loadUserData();
+        }
+        setState(() {
+          _selectedIndex = 0;
+        });
+        break;
     }
   }
 
@@ -222,12 +365,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: _isLoadingUser
                         ? Row(
                             children: [
-                              SizedBox(
+                              const SizedBox(
                                 height: 16,
                                 width: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -363,14 +508,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _categories.length,
                         itemBuilder: (context, index) {
-                          final isSelected = _selectedCategory == _categories[index];
+                          final isSelected =
+                              _selectedCategory == _categories[index];
                           return Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: FilterChip(
                               selected: isSelected,
                               label: Text(_categories[index]),
                               labelStyle: TextStyle(
-                                color: isSelected ? Colors.white : const Color(0xFF364057),
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF364057),
                                 fontFamily: 'CircularStd',
                                 fontSize: 13,
                               ),
@@ -439,8 +587,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     child: Padding(
                                       padding: const EdgeInsets.all(16),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
                                         children: [
                                           Text(
                                             news['title'],
@@ -459,16 +609,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                               Text(
                                                 news['date'],
                                                 style: TextStyle(
-                                                  color: Colors.white.withOpacity(0.8),
+                                                  color: Colors.white
+                                                      .withOpacity(0.8),
                                                   fontSize: 11,
                                                   fontFamily: 'CircularStd',
                                                 ),
                                               ),
                                               if (news['time'] != null) ...[
                                                 Text(
-                                                  ' — ${news['time']}',
+                                                  ' – ${news['time']}',
                                                   style: TextStyle(
-                                                    color: Colors.white.withOpacity(0.8),
+                                                    color: Colors.white
+                                                        .withOpacity(0.8),
                                                     fontSize: 11,
                                                     fontFamily: 'CircularStd',
                                                   ),
@@ -480,7 +632,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           Text(
                                             news['source'],
                                             style: TextStyle(
-                                              color: Colors.white.withOpacity(0.8),
+                                              color: Colors.white.withOpacity(
+                                                0.8,
+                                              ),
                                               fontSize: 11,
                                               fontFamily: 'CircularStd',
                                             ),
@@ -491,6 +645,264 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   );
                                 },
                               ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Donasi Section
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Donasi',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF364057),
+                                    fontFamily: 'CircularStd',
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: () => _loadCampaigns(),
+                                  child: Text(
+                                    _isLoadingCampaigns
+                                        ? 'Memuat...'
+                                        : 'Lihat Semua',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey[600],
+                                      fontFamily: 'CircularStd',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 160,
+                              child: _isLoadingCampaigns
+                                  ? const Center(
+                                      child: CircularProgressIndicator(),
+                                    )
+                                  : _campaigns.isEmpty
+                                  ? Center(
+                                      child: Text(
+                                        'Tidak ada kampanye aktif',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: _campaigns.length,
+                                      itemBuilder: (context, idx) {
+                                        final c = _campaigns[idx];
+                                        final rem = _remainingUntil(
+                                          c['end_time'] as String?,
+                                        );
+                                        final days = rem['days'];
+                                        final remText = rem['text'] as String;
+                                        final highlight =
+                                            days != null &&
+                                            days >= 1 &&
+                                            days <= 5;
+                                        final canDonate = c['end_time'] != null
+                                            ? (DateTime.tryParse(
+                                                    c['end_time'],
+                                                  )?.isAfter(DateTime.now()) ??
+                                                  true)
+                                            : true;
+
+                                        return GestureDetector(
+                                          onTap: () async {
+                                            if (!canDonate) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Donasi ini sudah selesai',
+                                                  ),
+                                                  backgroundColor:
+                                                      Colors.orange,
+                                                ),
+                                              );
+                                              return;
+                                            }
+
+                                            final result = await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    BerikanDonasiScreen(
+                                                      donation: c,
+                                                    ),
+                                              ),
+                                            );
+
+                                            if (result == true) {
+                                              _loadCampaigns();
+                                            }
+                                          },
+                                          child: Container(
+                                            width: 300,
+                                            height: 140,
+                                            margin: const EdgeInsets.only(
+                                              right: 12,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withOpacity(0.05),
+                                                  blurRadius: 6,
+                                                  offset: const Offset(0, 3),
+                                                ),
+                                              ],
+                                              border: highlight
+                                                  ? Border.all(
+                                                      color: Colors.redAccent,
+                                                      width: 2,
+                                                    )
+                                                  : null,
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Container(
+                                                  height: 84,
+                                                  width: double.infinity,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.grey[300],
+                                                    borderRadius:
+                                                        const BorderRadius.only(
+                                                          topLeft:
+                                                              Radius.circular(
+                                                                12,
+                                                              ),
+                                                          topRight:
+                                                              Radius.circular(
+                                                                12,
+                                                              ),
+                                                        ),
+                                                    image:
+                                                        c['cover_image_url'] !=
+                                                            null
+                                                        ? DecorationImage(
+                                                            image: NetworkImage(
+                                                              c['cover_image_url'],
+                                                            ),
+                                                            fit: BoxFit.cover,
+                                                          )
+                                                        : null,
+                                                  ),
+                                                ),
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 8,
+                                                      ),
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            Text(
+                                                              c['title'] ??
+                                                                  'Kegiatan',
+                                                              style: const TextStyle(
+                                                                fontSize: 14,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                color: Color(
+                                                                  0xFF364057,
+                                                                ),
+                                                                fontFamily:
+                                                                    'CircularStd',
+                                                              ),
+                                                              maxLines: 2,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                            const SizedBox(
+                                                              height: 6,
+                                                            ),
+                                                            Text(
+                                                              remText,
+                                                              style: TextStyle(
+                                                                color: highlight
+                                                                    ? Colors
+                                                                          .redAccent
+                                                                    : Colors
+                                                                          .grey[700],
+                                                                fontWeight:
+                                                                    highlight
+                                                                    ? FontWeight
+                                                                          .bold
+                                                                    : FontWeight
+                                                                          .w500,
+                                                                fontFamily:
+                                                                    'CircularStd',
+                                                                fontSize: 12,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      InkWell(
+                                                        onTap: () {
+                                                          print(
+                                                            "[Dashboard] Open campaign ${c['id']}",
+                                                          );
+                                                        },
+                                                        child: Container(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 10,
+                                                                vertical: 6,
+                                                              ),
+                                                          decoration: BoxDecoration(
+                                                            color: const Color(
+                                                              0xFF8FA3CC,
+                                                            ),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  8,
+                                                                ),
+                                                          ),
+                                                          child: Text(
+                                                            'Donasi',
+                                                            style:
+                                                                const TextStyle(
+                                                                  color: Colors
+                                                                      .white,
+                                                                  fontSize: 12,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
                             ),
                             const SizedBox(height: 24),
 
@@ -523,12 +935,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             GridView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: 0.75,
-                              ),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    childAspectRatio: 0.75,
+                                  ),
                               itemCount: _popularNews.length,
                               itemBuilder: (context, index) {
                                 final news = _popularNews[index];
@@ -544,10 +957,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         child: Container(
                                           decoration: BoxDecoration(
                                             color: Colors.grey[400],
-                                            borderRadius: const BorderRadius.only(
-                                              topLeft: Radius.circular(12),
-                                              topRight: Radius.circular(12),
-                                            ),
+                                            borderRadius:
+                                                const BorderRadius.only(
+                                                  topLeft: Radius.circular(12),
+                                                  topRight: Radius.circular(12),
+                                                ),
                                           ),
                                           child: Center(
                                             child: Icon(
@@ -563,7 +977,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         child: Padding(
                                           padding: const EdgeInsets.all(8),
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Expanded(
                                                 child: Text(
@@ -575,7 +990,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                     fontFamily: 'CircularStd',
                                                   ),
                                                   maxLines: 3,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                               ),
                                               const SizedBox(height: 4),
@@ -605,33 +1021,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            // Bottom Navigation
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildNavItem(Icons.home_rounded, 'Beranda', 0),
-                      _buildNavItem(Icons.favorite_border_rounded, 'Favorit', 1),
-                      _buildNavItem(Icons.grid_view_rounded, 'Kategori', 2),
-                      _buildNavItem(Icons.person_outline_rounded, 'Profil', 3),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            // Bottom Navigation - Using BottomNavBar widget
+            BottomNavBar(currentIndex: _selectedIndex, onTap: _onNavTap),
           ],
         ),
       ),
@@ -641,7 +1032,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildNavItem(IconData icon, String label, int index) {
     final isSelected = _selectedIndex == index;
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
+        if (index == 3) {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const ProfileScreen(),
+            ),
+          );
+          // Refresh data user setelah kembali dari Atur Profil
+          _loadUserData();
+          return;
+        }
         setState(() {
           _selectedIndex = index;
         });
@@ -677,3 +1078,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 }
+

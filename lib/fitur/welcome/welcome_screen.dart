@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bersatubantu/fitur/auth/login/login_screen.dart';
+import 'package:bersatubantu/fitur/pilihrole/role_selection_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -104,7 +104,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                     onTap: () {
                       Navigator.of(context).pushReplacement(
                         PageRouteBuilder(
-                          pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+                          pageBuilder: (context, animation, secondaryAnimation) => const RoleSelectionScreen(),
                           transitionsBuilder: (context, animation, secondaryAnimation, child) {
                             const begin = Offset(1.0, 0.0);
                             const end = Offset.zero;
