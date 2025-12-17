@@ -1,7 +1,5 @@
-// lib/features/berita_sosial/screens/edit_berita_screen.dart
-
 import 'package:flutter/material.dart';
-import '../models/berita_model.dart';
+import 'package:bersatubantu/fitur/berita_sosial/models/berita_model.dart';
 
 class EditBeritaScreen extends StatefulWidget {
   final BeritaModel berita;
@@ -33,16 +31,21 @@ class _EditBeritaScreenState extends State<EditBeritaScreen> {
 
   void _saveData() {
     if (_formKey.currentState!.validate()) {
+      // Membuat object BeritaModel baru dengan data yang diedit
       BeritaModel updatedBerita = BeritaModel(
         id: widget.berita.id,
         judul: _judulController.text,
         isi: _isiController.text,
+        // Data di bawah ini tetap sama (kecuali Anda buat form inputnya juga)
         tanggal: widget.berita.tanggal,
-        imageUrl: widget.berita.imageUrl,
-        author: widget.berita.author,
+        image: widget.berita.image, // Sesuaikan dengan nama di Model
+        source: widget.berita.source, // Sesuaikan dengan nama di Model
+        category: widget.berita.category,
       );
 
-      // TODO: Call API to Update Data here
+      // TODO: Panggil API Update Data di sini
+
+      // Kembali ke layar detail membawa data baru
       Navigator.pop(context, updatedBerita);
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -81,6 +84,7 @@ class _EditBeritaScreenState extends State<EditBeritaScreen> {
                 validator: (value) => value!.isEmpty ? "Judul tidak boleh kosong" : null,
               ),
               const SizedBox(height: 20),
+              
               const Text("Isi Berita", style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               TextFormField(
@@ -93,11 +97,15 @@ class _EditBeritaScreenState extends State<EditBeritaScreen> {
                 validator: (value) => value!.isEmpty ? "Isi berita tidak boleh kosong" : null,
               ),
               const SizedBox(height: 20),
-              const Text("Unggah Foto", style: TextStyle(fontWeight: FontWeight.bold)),
+              
+              const Text("Foto Berita", style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               InkWell(
                 onTap: () {
                   // TODO: Implement Image Picker Logic
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Fitur upload gambar belum tersedia")),
+                  );
                 },
                 child: Container(
                   height: 150,
@@ -105,14 +113,24 @@ class _EditBeritaScreenState extends State<EditBeritaScreen> {
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid),
+                    border: Border.all(color: Colors.grey.shade400),
+                    image: widget.berita.image.isNotEmpty
+                        ? DecorationImage(
+                            image: widget.berita.image.startsWith('http')
+                                ? NetworkImage(widget.berita.image)
+                                : AssetImage(widget.berita.image) as ImageProvider,
+                            fit: BoxFit.cover,
+                            colorFilter: ColorFilter.mode(
+                                Colors.black.withOpacity(0.3), BlendMode.darken), // Gelapkan sedikit agar teks terlihat
+                          )
+                        : null,
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                       Icon(Icons.add_a_photo, size: 40, color: Colors.grey[600]),
+                       Icon(Icons.add_a_photo, size: 40, color: Colors.grey[100]),
                        const SizedBox(height: 8),
-                       Text("Ganti Foto", style: TextStyle(color: Colors.grey[600])),
+                       Text("Ganti Foto", style: TextStyle(color: Colors.grey[100], fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
