@@ -5,6 +5,8 @@ import 'package:bersatubantu/fitur/donasi/donasi_screen.dart'; // Import donasi 
 import 'package:bersatubantu/fitur/berikandonasi/berikandonasi.dart';
 import 'dart:async';
 import 'package:bersatubantu/fitur/aturprofile/aturprofile.dart';
+import 'package:bersatubantu/fitur/chat/screens/chat_list_screen.dart';
+import 'package:bersatubantu/fitur/chat/screens/chat_debug_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -315,7 +317,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         _onRoutePopped(result);
         break;
       case 2:
-        // TODO: Navigate to Aksi screen
+        // Navigate to Aksi screen (TODO)
         print('[Dashboard] Navigate to Aksi');
         setState(() {
           _selectedIndex = index;
@@ -413,6 +415,53 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               ),
                             ],
                           ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Message Icon Button
+                  GestureDetector(
+                    onTap: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ChatListScreen()),
+                      );
+                      if (result == true) {
+                        _loadUserData();
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF364057),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // DEBUG BUTTON - TEMPORARY
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ChatDebugScreen()),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red[700],
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.bug_report,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Container(
