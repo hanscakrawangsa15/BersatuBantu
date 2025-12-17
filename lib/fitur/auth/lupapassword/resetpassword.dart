@@ -66,7 +66,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     try {
       print('[ResetPassword] Attempting to update password');
-      
+
+      // Ensure we have a recovery session (user clicked link in email and app received it)
+      final session = supabase.auth.currentSession;
+      if (session == null) {
+        throw Exception('Tidak ada session recovery. Pastikan Anda membuka link reset password pada perangkat ini dan menunggu aplikasi terbuka.');
+      }
+
       // Update password
       final response = await supabase.auth.updateUser(
         UserAttributes(
@@ -75,6 +81,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       );
 
       print('[ResetPassword] Password updated successfully');
+
+      // Optionally clear recovery session by signing out so user can login again normally
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {
+        print('[ResetPassword] Sign out after reset failed: $e');
+      }
 
       if (mounted) {
         // Show success message

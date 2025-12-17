@@ -190,6 +190,55 @@ app.post('/midtrans-webhook', async (req, res) => {
     return res.status(200).json({ ok: true });
 });
 
+// Admin helper: create or upsert a profile using the Supabase service role key.
+// Secured by an ADMIN_PROFILE_KEY env var which must be provided in the
+// `x-admin-key` header. This endpoint is useful as a fallback when client
+// registration attempts fail due to race conditions or missing DB triggers.
+app.post('/admin/create-profile', async (req, res) => {
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+    const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+    const ADMIN_PROFILE_KEY = process.env.ADMIN_PROFILE_KEY;
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+        return res.status(500).json({ error: 'Supabase service not configured on server' });
+    }
+
+    const adminKey = req.header('x-admin-key');
+    if (!ADMIN_PROFILE_KEY || adminKey !== ADMIN_PROFILE_KEY) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { id, full_name, email } = req.body || {};
+    if (!id || !email) return res.status(400).json({ error: 'Missing required fields: id, email' });
+
+    try {
+        const endpoint = `${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/profiles`;
+        const body = [{ id, full_name: full_name || null, email }];
+
+        const resp = await fetch(endpoint + '?prefer=return=representation', {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_SERVICE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify(body),
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) {
+            console.error('Create-profile failed:', resp.status, data);
+            return res.status(resp.status).json({ error: 'Supabase request failed', details: data });
+        }
+
+        return res.json({ ok: true, inserted: data });
+    } catch (err) {
+        console.error('Error in /admin/create-profile:', err);
+        return res.status(500).json({ error: err?.toString() || 'unknown error' });
+    }
+});
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
     console.log(`Midtrans sample server listening on http://localhost:${port}`);
