@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
+import 'package:bersatubantu/fitur/aturprofile/account_settings_screen.dart';
+import 'package:bersatubantu/fitur/aturprofile/donation_history_screen.dart';
+import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
+import 'package:bersatubantu/fitur/dashboard/dashboard_screen.dart';
+import 'package:bersatubantu/fitur/donasi/donasi_screen.dart';
+import 'package:bersatubantu/fitur/aksi/aksi_screen.dart';
 
 // ------------------------------------------------------------------
 // 1. MAIN & INISIALISASI
@@ -62,6 +69,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _getProfileData();
   }
 
+  @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    print('[ProfileScreen] Widget updated - Refreshing profile data');
+    _getProfileData();
+  }
+
   // MURNI AMBIL DARI DATABASE
   Future<void> _getProfileData() async {
     try {
@@ -105,46 +119,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Atur Profil", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            // --- HEADER PROFIL ---
-            Row(
-              children: [
-                const CircleAvatar(
-                  radius: 35,
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          print('[ProfileScreen] PopScope triggered - User navigating back');
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("Atur Profil", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            children: [
+              // --- HEADER PROFIL ---
+              Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 35,
                   backgroundColor: Color(0xFF768BBD),
                   child: Icon(Icons.person, size: 40, color: Colors.white),
                 ),
                 const SizedBox(width: 15),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text(_email, style: const TextStyle(color: Colors.grey)),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _name,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _email,
+                        style: const TextStyle(color: Colors.grey),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
                 const Spacer(),
                 OutlinedButton(
                   onPressed: () async {
                     // Pindah ke halaman Edit (Tanpa kirim data dummy)
-                    await Navigator.push(
+                    final result = await Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => const EditProfileScreen()),
                     );
-                    // Refresh data DB setelah kembali
-                    _getProfileData(); 
+                    // Refresh data DB setelah kembali (jika ada perubahan)
+                    if (result == true) {
+                      print('[ProfileScreen] Profile was updated - Refreshing data');
+                      _getProfileData();
+                    } else {
+                      print('[ProfileScreen] Profile edit was cancelled');
+                    }
                   },
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF768BBD)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: const Size(0, 36),
                   ),
                   child: const Text("Edit Profil", style: TextStyle(color: Color(0xFF768BBD))),
                 )
@@ -153,36 +194,187 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 30),
             
             // --- MENU LAINNYA ---
-            _buildPlaceholderItem(),
-            _buildPlaceholderItem(),
-            _buildPlaceholderItem(),
+            _buildMenuCard(
+              icon: Icons.settings_outlined,
+              title: "Pengaturan Akun",
+              subtitle: "Ubah password, notifikasi, privasi",
+              onTap: () {
+                // Navigasi ke Pengaturan Akun
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AccountSettingsScreen()),
+                );
+              },
+            ),
+            _buildMenuCard(
+              icon: Icons.history_outlined,
+              title: "Riwayat Donasi",
+              subtitle: "Lihat donasi yang telah dilakukan",
+              onTap: () {
+                // Navigasi ke Riwayat Donasi
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const DonationHistoryScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 30),
+            
+            // --- TOMBOL LOGOUT ---
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  // Tampilkan dialog konfirmasi logout
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      title: const Text("Konfirmasi Logout", style: TextStyle(fontWeight: FontWeight.bold)),
+                      content: const Text("Apakah Anda yakin ingin keluar dari akun ini?"),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+                        ),
+                        ElevatedButton(
+                          onPressed: () async {
+                            Navigator.pop(context); // Tutup dialog
+                            try {
+                              // Logout dari Supabase
+                              await Supabase.instance.client.auth.signOut();
+                              if (mounted) {
+                                // Navigasi ke Splash Screen dan hapus semua route sebelumnya
+                                Navigator.of(context).pushAndRemoveUntil(
+                                  MaterialPageRoute(builder: (context) => const SplashScreen()),
+                                  (route) => false,
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text("Gagal logout: $e")),
+                                );
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                          ),
+                          child: const Text("Logout", style: TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text("Logout", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
           ],
         ),
       ),
-      // Bottom Navigation Bar
-      bottomNavigationBar: BottomNavigationBar(
+      // Use shared BottomNavBar widget for consistent behavior
+      bottomNavigationBar: BottomNavBar(
         currentIndex: 3,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF768BBD),
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.handshake), label: 'Bantu'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Riwayat'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
-        ],
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              // Navigate to Dashboard (replace current)
+              print('[ProfileScreen] Navigate to Dashboard via BottomNav');
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const DashboardScreen()),
+              );
+              break;
+            case 1:
+              // Navigate to Donasi screen
+              Navigator.of(context).push(MaterialPageRoute(builder: (context) => const DonasiScreen()));
+              break;
+            case 2:
+              // Navigate to Aksi (placeholder) screen
+              Navigator.of(context).push(MaterialPageRoute(builder: (context) => const AksiScreen()));
+              break;
+            case 3:
+              // already on profile
+              break;
+          }
+        },
+      ),
+      ),
+    );
+  }
+  }
+
+  Widget _buildMenuCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF768BBD).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: const Color(0xFF768BBD), size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildPlaceholderItem() {
-    return Container(
-      height: 80,
-      margin: const EdgeInsets.only(bottom: 15),
-      decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
-    );
-  }
-}
 
 // ------------------------------------------------------------------
 // 3. EDIT PROFIL (REAL DB UPDATE)
@@ -256,10 +448,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'updated_at': DateTime.now().toIso8601String(),
       });
 
-      if (mounted) Navigator.pop(context); // Kembali ke Profil jika sukses
+      if (mounted) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil berhasil diperbarui'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        // Wait a bit for the snackbar to be visible then pop
+        await Future.delayed(const Duration(milliseconds: 500));
+        Navigator.pop(context, true); // Return true to indicate data was updated
+      }
 
     } catch (e) {
       // Jika Gagal (Internet mati / Error DB)
+      print('[EditProfile] Error updating profile: $e');
       _showErrorDialog();
     } finally {
       if (mounted) setState(() => _isLoading = false);
