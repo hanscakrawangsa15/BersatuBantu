@@ -172,7 +172,7 @@ class _DocumentsUploadScreenState extends State<DocumentsUploadScreen> {
                             ),
                           ),
                           child: Text(
-                            provider.isLoading ? 'Mengirim...' : 'Selanjutnya',
+                            provider.isLoading ? 'Mengirim...' : 'Daftar',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,

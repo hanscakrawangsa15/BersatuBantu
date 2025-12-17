@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:bersatubantu/fitur/pilihrole/role_selection_screen.dart';
 import 'package:bcrypt/bcrypt.dart';
 import 'package:bersatubantu/fitur/verifikasi_organisasi/screens/verification_flow.dart';
 import 'package:bersatubantu/fitur/verifikasi_organisasi/screens/waiting_verification_screen.dart';
@@ -218,9 +219,26 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
                       // Back button
                       GestureDetector(
                         onTap: () {
-                          Navigator.of(
-                            context,
-                          ).popUntil((route) => route.isFirst);
+                          Navigator.of(context).pushReplacement(
+                            PageRouteBuilder(
+                              pageBuilder: (context, animation,
+                                      secondaryAnimation) =>
+                                  const RoleSelectionScreen(),
+                              transitionsBuilder: (context, animation,
+                                  secondaryAnimation, child) {
+                                const begin = Offset(-1.0, 0.0);
+                                const end = Offset.zero;
+                                const curve = Curves.easeInOut;
+                                var tween = Tween(begin: begin, end: end)
+                                    .chain(CurveTween(curve: curve));
+                                var offsetAnimation = animation.drive(tween);
+                                return SlideTransition(
+                                    position: offsetAnimation, child: child);
+                              },
+                              transitionDuration:
+                                  const Duration(milliseconds: 400),
+                            ),
+                          );
                         },
                         child: const Icon(
                           Icons.arrow_back,

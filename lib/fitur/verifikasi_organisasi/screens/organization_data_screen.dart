@@ -281,7 +281,7 @@ class _OrganizationDataScreenState extends State<OrganizationDataScreen> {
                               ),
                             ),
                             child: const Text(
-                              'Daftar',
+                              'Selanjutnya',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
