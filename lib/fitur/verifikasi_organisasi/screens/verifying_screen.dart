@@ -28,40 +28,51 @@ class _VerifyingScreenState extends State<VerifyingScreen>
   }
 
   void _startPollingForApproval() {
-    Future.microtask(() {
+    Future.microtask(() async {
       final provider = context.read<OrganizationVerificationProvider>();
-      final organizationId = provider.data.organizationId;
+      final orgEmail = provider.data.email;
 
-      if (organizationId == null || organizationId.isEmpty) {
+      if (orgEmail == null || orgEmail.isEmpty) {
+        print('[Verifying] No email found in provider data');
         return;
       }
 
-      // Start polling loop
-      _pollForApproval(organizationId);
+      // Start polling by email
+      _pollForApproval(orgEmail);
     });
   }
 
-  Future<void> _pollForApproval(String organizationId) async {
+  Future<void> _pollForApproval(String orgEmail) async {
     // Poll setiap 2 detik untuk cek status approval
     while (mounted) {
       try {
         final response = await supabase
-            .from('organization_verifications')
+            .from('organization_request')
             .select('status')
-            .eq('id', organizationId)
-            .single();
+            .eq('email_organisasi', orgEmail)
+            .maybeSingle();
+
+        if (response == null) {
+          print('[Verifying] No organization_request found for: $orgEmail');
+          await Future.delayed(const Duration(seconds: 2));
+          continue;
+        }
 
         final status = response['status'];
+        print('[Verifying] Current status: $status');
 
         if (mounted) {
-          if (status == 'approved') {
+          if (status == 'approve') {
             // Admin approved! Transisi ke success screen
+            print('[Verifying] ✅ Approved! Moving to success screen');
             final provider = context.read<OrganizationVerificationProvider>();
             provider.currentStep = 4;
+            provider.notifyListeners();
             break;
-          } else if (status == 'rejected') {
+          } else if (status == 'reject') {
             // Admin rejected, show error
-            _showRejectionDialog(organizationId);
+            print('[Verifying] ❌ Rejected');
+            _showRejectionDialog(orgEmail);
             break;
           }
         }
@@ -69,7 +80,7 @@ class _VerifyingScreenState extends State<VerifyingScreen>
         // Wait 2 seconds sebelum polling lagi
         await Future.delayed(const Duration(seconds: 2));
       } catch (e) {
-        print('Error polling approval status: $e');
+        print('[Verifying] Error polling approval status: $e');
         // Continue polling bahkan kalau ada error
         await Future.delayed(const Duration(seconds: 2));
       }
@@ -82,7 +93,9 @@ class _VerifyingScreenState extends State<VerifyingScreen>
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Pengajuan Ditolak'),
-        content: const Text('Maaf, pengajuan verifikasi organisasi Anda telah ditolak oleh admin. Silakan hubungi admin untuk informasi lebih lanjut.'),
+        content: const Text(
+          'Maaf, pengajuan verifikasi organisasi Anda telah ditolak oleh admin. Silakan hubungi admin untuk informasi lebih lanjut.',
+        ),
         actions: [
           TextButton(
             onPressed: () {
@@ -109,10 +122,7 @@ class _VerifyingScreenState extends State<VerifyingScreen>
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF768BBD),
-              Color(0xFF768BBD),
-            ],
+            colors: [Color(0xFF768BBD), Color(0xFF768BBD)],
           ),
         ),
         child: Center(

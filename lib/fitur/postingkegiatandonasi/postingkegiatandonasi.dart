@@ -8,8 +8,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../utils/place_service.dart';
 import 'dart:io';
 import 'dart:typed_data';
+import '../../utils/maps_availability.dart';
+import 'dart:async';
 
 class PostingKegiatanDonasiScreen extends StatefulWidget {
   const PostingKegiatanDonasiScreen({super.key});
@@ -33,6 +36,7 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
   bool _isLoading = false;
   bool _isSavingDraft = false;
   DateTime? _selectedEndDate;
+  bool _isInjectingMap = false;
   
   // Location data
   double? _latitude;
@@ -47,6 +51,8 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
     _locationController.dispose();
     super.dispose();
   }
+
+
 
   Future<void> _pickImage() async {
     try {
@@ -165,6 +171,27 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
     }
   }
 
+  // Show a user-friendly dialog when the DB is missing expected location columns
+  void _showMissingColumnDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Kolom database hilang'),
+        content: const Text('''Kolom untuk menyimpan lokasi (location_name/location) tidak ditemukan di tabel `donation_campaigns` pada database.
+Silakan tambahkan kolom `location_name` (text) dan `location` (jsonb) di Supabase (atau sesuaikan sesuai skema Anda).
+
+Jika Anda lebih suka tidak menjalankan migrasi dari repo, Anda bisa menambahkan kolom tersebut langsung melalui Supabase SQL editor atau panel admin.'''),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+ 
+
   String _formatDate(DateTime date) {
     final months = [
       'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -269,6 +296,8 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
 
       final endTime = _selectedEndDate ?? DateTime.now().add(const Duration(days: 30));
 
+      // Note: We store the human-readable address in `location_name` (text)
+      // and the coordinates in `location` as a JSON object { lat, lng } (jsonb in DB).
       await supabase.from('donation_campaigns').insert({
         'organization_id': user.id,
         'title': _titleController.text.trim().isEmpty 
@@ -281,9 +310,11 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
         'status': 'draft',
         'start_time': DateTime.now().toIso8601String(),
         'end_time': endTime.toIso8601String(),
-        'latitude': _latitude,
-        'longitude': _longitude,
         'location_name': _locationName,
+        'location': (_latitude != null && _longitude != null) ? {
+          'lat': _latitude,
+          'lng': _longitude,
+        } : null,
         'created_at': DateTime.now().toIso8601String(),
       });
 
@@ -299,13 +330,18 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
     } catch (e) {
       print('[PostingDonasi] Error saving draft: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal menyimpan draft: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
+        final message = e.toString();
+        if (message.contains("Could not find the 'latitude'") || message.contains("Could not find the 'longitude'") || message.contains("Could not find the 'location'") || message.contains("Could not find the 'location_name'")) {
+          _showMissingColumnDialog();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal menyimpan draft: ${e.toString()}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
       }
     } finally {
       if (mounted) {
@@ -350,6 +386,7 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
 
       final targetAmount = int.parse(_targetAmountController.text.replaceAll('.', ''));
 
+      // Store address and coordinates as JSON for DB compatibility
       await supabase.from('donation_campaigns').insert({
         'organization_id': user.id,
         'title': _titleController.text.trim(),
@@ -360,9 +397,8 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
         'status': 'active',
         'start_time': DateTime.now().toIso8601String(),
         'end_time': _selectedEndDate!.toIso8601String(),
-        'latitude': _latitude,
-        'longitude': _longitude,
         'location_name': _locationName,
+        'location': (_latitude != null && _longitude != null) ? {'lat': _latitude, 'lng': _longitude} : null,
         'created_at': DateTime.now().toIso8601String(),
       });
 
@@ -380,13 +416,18 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
     } catch (e) {
       print('[PostingDonasi] Error posting donation: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal memposting: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
+        final message = e.toString();
+        if (message.contains("Could not find the 'latitude'") || message.contains("Could not find the 'longitude'") || message.contains("Could not find the 'location'") || message.contains("Could not find the 'location_name'")) {
+          _showMissingColumnDialog();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal memposting: ${e.toString()}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
       }
     } finally {
       if (mounted) {
@@ -883,6 +924,14 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   final Set<Marker> _markers = {};
   String? _resolvedAddress;
   bool _isResolvingAddress = false;
+  bool _isInjectingMap = false;
+
+  // Search/autocomplete
+  final _searchController = TextEditingController();
+  final _placeService = PlaceService();
+  List<PlaceSuggestion> _suggestions = [];
+  bool _isSearching = false;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -896,6 +945,54 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     );
     // Resolve initial position to a human-readable address
     _resolveAddress(_selectedPosition);
+
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final text = _searchController.text.trim();
+    _searchDebounce?.cancel();
+    if (text.isEmpty) {
+      setState(() {
+        _suggestions = [];
+      });
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () async {
+      setState(() {
+        _isSearching = true;
+      });
+      try {
+        final res = await _placeService.autocomplete(text);
+        setState(() {
+          _suggestions = res;
+        });
+        if (res.isEmpty && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Tidak ditemukan hasil. Periksa konfigurasi API key dan aktifkan Places API.')),
+          );
+        }
+      } catch (e) {
+        print('[LocationPicker] Autocomplete error: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal mencari tempat. Periksa koneksi dan konfigurasi API key.')),
+          );
+        }
+      } finally {
+        setState(() {
+          _isSearching = false;
+        });
+      }
+    });
   }
 
   void _onMapTapped(LatLng position) {
@@ -988,6 +1085,90 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       ),
       body: Column(
         children: [
+          // Search box for places
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Cari kota atau lokasi...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                if (_suggestions.isNotEmpty || _isSearching)
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: _isSearching
+                        ? const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: _suggestions.length,
+                            itemBuilder: (context, index) {
+                              final s = _suggestions[index];
+                              return ListTile(
+                                title: Text(s.description),
+                                onTap: () async {
+                                  // fetch place details
+                                  final details = await _placeService.getPlaceDetails(s.placeId);
+                                  if (details != null) {
+                                    final loc = details['geometry']?['location'];
+                                    if (loc != null) {
+                                      final lat = (loc['lat'] as num).toDouble();
+                                      final lng = (loc['lng'] as num).toDouble();
+                                      setState(() {
+                                        _selectedPosition = LatLng(lat, lng);
+                                        _markers.clear();
+                                        _markers.add(Marker(markerId: const MarkerId('selected_location'), position: _selectedPosition));
+                                        _resolvedAddress = details['formatted_address'] as String? ?? details['name'] as String?;
+                                        _suggestions = [];
+                                        _searchController.text = _resolvedAddress ?? '';
+                                      });
+                                      // move camera if map loaded
+                                      try {
+                                        _mapController.animateCamera(CameraUpdate.newLatLng(_selectedPosition));
+                                      } catch (_) {}
+                                    }
+                                  }
+                                },
+                              );
+                            },
+                          ),
+                  ),
+              ],
+            ),
+          ),
+
           // Address display
           Padding(
             padding: const EdgeInsets.all(12.0),
@@ -1033,20 +1214,71 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
             ),
           ),
           Expanded(
-            child: GoogleMap(
-        initialCameraPosition: CameraPosition(
-          target: _selectedPosition,
-          zoom: 15,
-        ),
-        onMapCreated: (controller) {
-          _mapController = controller;
-        },
-        onTap: _onMapTapped,
-        markers: _markers,
-        myLocationEnabled: true,
-        myLocationButtonEnabled: true,
-            ),
+            child: isGoogleMapsAvailable()
+                ? GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: _selectedPosition,
+                      zoom: 15,
+                    ),
+                    onMapCreated: (controller) {
+                      _mapController = controller;
+                    },
+                    onTap: _onMapTapped,
+                    markers: _markers,
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: true,
+                  )
+                : _buildMapsNotLoadedPlaceholder(),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapsNotLoadedPlaceholder() {
+    return Container(
+      color: Colors.red[900],
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.yellow, size: 40),
+          const SizedBox(height: 12),
+          const Text(
+            'Google Maps tidak dimuat pada web. Tambahkan script Google Maps JavaScript API pada file web/index.html dan reload.',
+            style: TextStyle(color: Colors.yellow),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          _isInjectingMap
+              ? const CircularProgressIndicator(color: Colors.white)
+              : ElevatedButton(
+                  onPressed: () async {
+                    setState(() {
+                      _isInjectingMap = true;
+                    });
+                    try {
+                      final apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'];
+                      final loaded = await injectGoogleMapsScript(apiKey);
+                      if (loaded) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Google Maps berhasil dimuat. Jika peta belum muncul, tekan kembali atau reload halaman.')),
+                        );
+                        setState(() {});
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Gagal memuat Google Maps. Tambahkan script ke web/index.html dan isi API key Anda.')),
+                        );
+                      }
+                    } finally {
+                      setState(() {
+                        _isInjectingMap = false;
+                      });
+                    }
+                  },
+                  child: const Text('Petunjuk setup'),
+                ),
         ],
       ),
     );

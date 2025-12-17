@@ -130,9 +130,37 @@ class _DocumentsUploadScreenState extends State<DocumentsUploadScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: (provider.data.docAktaPath != null &&
-                                  provider.data.docNpwpPath != null)
-                              ? () {
-                                  provider.nextStep();
+                                  provider.data.docNpwpPath != null &&
+                                  !provider.isLoading)
+                              ? () async {
+                                  // Submit verification data to database
+                                  try {
+                                    final success = await provider.submitVerification();
+                                    if (mounted) {
+                                      if (success) {
+                                        provider.nextStep();
+                                      } else {
+                                        // Show error message
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(provider.lastMessage ?? 'Gagal mengirim verifikasi'),
+                                            backgroundColor: Colors.red,
+                                            duration: const Duration(seconds: 5),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Error: ${e.toString()}'),
+                                          backgroundColor: Colors.red,
+                                          duration: const Duration(seconds: 5),
+                                        ),
+                                      );
+                                    }
+                                  }
                                 }
                               : null,
                           style: ElevatedButton.styleFrom(
@@ -143,9 +171,9 @@ class _DocumentsUploadScreenState extends State<DocumentsUploadScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text(
-                            'Selanjutnya',
-                            style: TextStyle(
+                          child: Text(
+                            provider.isLoading ? 'Mengirim...' : 'Daftar',
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: Colors.white,

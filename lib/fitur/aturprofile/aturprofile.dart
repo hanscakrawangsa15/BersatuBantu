@@ -3,6 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
 import 'package:bersatubantu/fitur/aturprofile/account_settings_screen.dart';
 import 'package:bersatubantu/fitur/aturprofile/donation_history_screen.dart';
+import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
+import 'package:bersatubantu/fitur/dashboard/dashboard_screen.dart';
+import 'package:bersatubantu/fitur/donasi/donasi_screen.dart';
+import 'package:bersatubantu/fitur/aksi/aksi_screen.dart';
 
 // ------------------------------------------------------------------
 // 1. MAIN & INISIALISASI
@@ -141,12 +145,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Icon(Icons.person, size: 40, color: Colors.white),
                 ),
                 const SizedBox(width: 15),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text(_email, style: const TextStyle(color: Colors.grey)),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _name,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _email,
+                        style: const TextStyle(color: Colors.grey),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
                 const Spacer(),
                 OutlinedButton(
@@ -167,6 +184,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF768BBD)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: const Size(0, 36),
                   ),
                   child: const Text("Edit Profil", style: TextStyle(color: Color(0xFF768BBD))),
                 )
@@ -259,39 +278,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-      // Bottom Navigation Bar disamakan dengan Dashboard
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 3, // Profil terpilih
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF768BBD),
-        unselectedItemColor: Colors.grey,
+      // Use shared BottomNavBar widget for consistent behavior
+      bottomNavigationBar: BottomNavBar(
+        currentIndex: 3,
         onTap: (index) {
           switch (index) {
-            case 0: // Beranda - Pop back to Dashboard dengan signal refresh
-              print('[ProfileScreen] Navigate back to Dashboard via BottomNav');
-              Navigator.of(context).pop(true); // Return true untuk signal refresh
-              break;
-            case 1: // Favorit (sementara: hanya snackbar atau TODO)
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Menu Favorit belum tersedia')),
+            case 0:
+              // Navigate to Dashboard (replace current)
+              print('[ProfileScreen] Navigate to Dashboard via BottomNav');
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const DashboardScreen()),
               );
               break;
-            case 2: // Kategori (sementara: hanya snackbar atau TODO)
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Menu Kategori belum tersedia')),
-              );
+            case 1:
+              // Navigate to Donasi screen
+              Navigator.of(context).push(MaterialPageRoute(builder: (context) => const DonasiScreen()));
               break;
-            case 3: // Profil
-              // sudah di halaman ini, tidak perlu apa-apa
+            case 2:
+              // Navigate to Aksi (placeholder) screen
+              Navigator.of(context).push(MaterialPageRoute(builder: (context) => const AksiScreen()));
+              break;
+            case 3:
+              // already on profile
               break;
           }
         },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite_border_rounded), label: 'Favorit'),
-          BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'Kategori'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), label: 'Profil'),
-        ],
       ),
       ),
     );

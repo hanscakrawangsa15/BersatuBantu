@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:bersatubantu/fitur/pilihrole/role_selection_screen.dart';
+import 'package:bcrypt/bcrypt.dart';
 import 'package:bersatubantu/fitur/verifikasi_organisasi/screens/verification_flow.dart';
 import 'package:bersatubantu/fitur/verifikasi_organisasi/screens/waiting_verification_screen.dart';
 
@@ -8,7 +10,8 @@ class OrganizationLoginScreen extends StatefulWidget {
   const OrganizationLoginScreen({super.key});
 
   @override
-  State<OrganizationLoginScreen> createState() => _OrganizationLoginScreenState();
+  State<OrganizationLoginScreen> createState() =>
+      _OrganizationLoginScreenState();
 }
 
 class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
@@ -35,60 +38,71 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
     try {
       final supabase = Supabase.instance.client;
 
-      // First, get the organization from organizations table using email
+      // Query organization_request by email
       final orgResponse = await supabase
-          .from('organizations')
-          .select('id, name, email')
-          .eq('email', _emailController.text)
+          .from('organization_request')
+          .select('*')
+          .eq('email_organisasi', _emailController.text)
           .maybeSingle();
 
       if (orgResponse == null) {
         if (mounted) {
-          _showErrorDialog('Organisasi tidak ditemukan. Silakan daftar terlebih dahulu.');
+          _showErrorDialog(
+            'Organisasi tidak ditemukan. Silakan daftar terlebih dahulu.',
+          );
         }
         return;
       }
 
-      final orgId = orgResponse['id'].toString();
-      final orgName = orgResponse['name'] as String?;
+      // Validate password hash
+      final storedPasswordHash = orgResponse['password_organisasi'] as String?;
+      bool passwordValid = false;
+      
+      try {
+        passwordValid = BCrypt.checkpw(
+          _passwordController.text,
+          storedPasswordHash ?? ''
+        );
+      } catch (e) {
+        print('[Login] Error checking password: $e');
+      }
 
-      // Then, check verification status in organization_verifications table
-      final verificationResponse = await supabase
-          .from('organization_verifications')
-          .select('status')
-          .eq('organization_id', orgId)
-          .maybeSingle();
-
-      if (verificationResponse == null) {
+      if (!passwordValid) {
         if (mounted) {
-          _showErrorDialog('Verifikasi organisasi tidak ditemukan. Silakan selesaikan proses pendaftaran.');
+          _showErrorDialog('Email atau password salah');
         }
         return;
       }
 
-      final status = verificationResponse['status'] as String?;
+      // Check status
+      final status = orgResponse['status'] as String?;
+      final orgName = orgResponse['nama_organisasi'] as String?;
 
-      // Check if organization is pending verification
       if (status == 'pending') {
         if (mounted) {
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(
               pageBuilder: (context, animation, secondaryAnimation) =>
                   WaitingVerificationScreen(
-                organizationId: orgId,
-                organizationName: orgName ?? 'Organisasi',
-              ),
+                    organizationId: orgResponse['request_id'].toString(),
+                    organizationName: orgName ?? 'Organisasi',
+                    organizationEmail: _emailController.text,
+                  ),
               transitionsBuilder:
                   (context, animation, secondaryAnimation, child) {
-                const begin = Offset(1.0, 0.0);
-                const end = Offset.zero;
-                const curve = Curves.easeInOut;
-                var tween = Tween(begin: begin, end: end)
-                    .chain(CurveTween(curve: curve));
-                var offsetAnimation = animation.drive(tween);
-                return SlideTransition(
-                    position: offsetAnimation, child: child);
-              },
+                    const begin = Offset(1.0, 0.0);
+                    const end = Offset.zero;
+                    const curve = Curves.easeInOut;
+                    var tween = Tween(
+                      begin: begin,
+                      end: end,
+                    ).chain(CurveTween(curve: curve));
+                    var offsetAnimation = animation.drive(tween);
+                    return SlideTransition(
+                      position: offsetAnimation,
+                      child: child,
+                    );
+                  },
               transitionDuration: const Duration(milliseconds: 400),
             ),
           );
@@ -96,46 +110,27 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
         return;
       }
 
-      // Check if organization is rejected
-      if (status == 'rejected') {
+      if (status == 'reject') {
         if (mounted) {
           _showErrorDialog(
-            'Organisasi Anda ditolak oleh admin.\n\n'
-            'Silakan hubungi admin untuk informasi lebih lanjut atau coba daftar ulang dengan dokumen yang lebih lengkap.',
+            'Permohonan organisasi Anda telah ditolak. Hubungi admin untuk informasi lebih lanjut.',
           );
         }
         return;
       }
 
-      // Check if organization is approved
-      if (status != 'approved') {
+      if (status == 'approve') {
         if (mounted) {
-          _showErrorDialog(
-            'Organisasi Anda belum diverifikasi oleh admin.\n'
-            'Status: $status\n\n'
-            'Silakan tunggu proses verifikasi selesai.',
-          );
-        }
-        return;
-      }
-
-      // Organization is approved, allow login
-      // TODO: Create actual user in auth if not exists, or link to existing user
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Selamat datang $orgName!',
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Selamat datang $orgName!'),
+              backgroundColor: Colors.green,
             ),
-            backgroundColor: Colors.green,
-          ),
-        );
+          );
 
-        // Navigate to home/dashboard
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/home',
-          (route) => false,
-        );
+          // Navigate to home/dashboard
+          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+        }
       }
     } on PostgrestException catch (e) {
       if (mounted) {
@@ -224,8 +219,25 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
                       // Back button
                       GestureDetector(
                         onTap: () {
-                          Navigator.of(context).popUntil(
-                            (route) => route.isFirst,
+                          Navigator.of(context).pushReplacement(
+                            PageRouteBuilder(
+                              pageBuilder: (context, animation,
+                                      secondaryAnimation) =>
+                                  const RoleSelectionScreen(),
+                              transitionsBuilder: (context, animation,
+                                  secondaryAnimation, child) {
+                                const begin = Offset(-1.0, 0.0);
+                                const end = Offset.zero;
+                                const curve = Curves.easeInOut;
+                                var tween = Tween(begin: begin, end: end)
+                                    .chain(CurveTween(curve: curve));
+                                var offsetAnimation = animation.drive(tween);
+                                return SlideTransition(
+                                    position: offsetAnimation, child: child);
+                              },
+                              transitionDuration:
+                                  const Duration(milliseconds: 400),
+                            ),
                           );
                         },
                         child: const Icon(
@@ -379,8 +391,9 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
                                   width: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor:
-                                        AlwaysStoppedAnimation<Color>(Colors.white),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
                                   ),
                                 )
                               : const Text(
