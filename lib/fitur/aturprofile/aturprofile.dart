@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
 import 'package:bersatubantu/fitur/aturprofile/account_settings_screen.dart';
 import 'package:bersatubantu/fitur/aturprofile/donation_history_screen.dart';
+import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
+import 'package:bersatubantu/fitur/donasi/donasi_screen.dart';
 
 // ------------------------------------------------------------------
 // 1. MAIN & INISIALISASI
@@ -56,6 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // Variabel inisialisasi kosong/loading (Bukan Dummy)
   String _name = "Memuat..."; 
   String _email = "Memuat...";
+  int _selectedNavIndex = 3; // Profil is index 3
   
   final supabase = Supabase.instance.client;
 
@@ -110,6 +113,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _email = "-";
         });
       }
+    }
+  }
+
+  // Handle bottom navigation tap
+  void _onNavTap(int index) {
+    switch (index) {
+      case 0: // Beranda
+        print('[ProfileScreen] Navigate to Dashboard');
+        Navigator.of(context).pop(true); // Pop back to Dashboard
+        break;
+      case 1: // Donasi
+        print('[ProfileScreen] Navigate to Donasi');
+        setState(() {
+          _selectedNavIndex = 1;
+        });
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const DonasiScreen()),
+        );
+        break;
+      case 2: // Aksi
+        print('[ProfileScreen] Navigate to Aksi');
+        setState(() {
+          _selectedNavIndex = 2;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Menu Aksi belum tersedia')),
+        );
+        // Reset back to Profil index
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            setState(() {
+              _selectedNavIndex = 3;
+            });
+          }
+        });
+        break;
+      case 3: // Profil - sudah di halaman ini
+        setState(() {
+          _selectedNavIndex = 3;
+        });
+        break;
     }
   }
 
@@ -259,39 +304,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-      // Bottom Navigation Bar disamakan dengan Dashboard
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 3, // Profil terpilih
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF768BBD),
-        unselectedItemColor: Colors.grey,
-        onTap: (index) {
-          switch (index) {
-            case 0: // Beranda - Pop back to Dashboard dengan signal refresh
-              print('[ProfileScreen] Navigate back to Dashboard via BottomNav');
-              Navigator.of(context).pop(true); // Return true untuk signal refresh
-              break;
-            case 1: // Favorit (sementara: hanya snackbar atau TODO)
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Menu Favorit belum tersedia')),
-              );
-              break;
-            case 2: // Kategori (sementara: hanya snackbar atau TODO)
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Menu Kategori belum tersedia')),
-              );
-              break;
-            case 3: // Profil
-              // sudah di halaman ini, tidak perlu apa-apa
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite_border_rounded), label: 'Favorit'),
-          BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'Kategori'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), label: 'Profil'),
-        ],
+      // Bottom Navigation - Using Custom BottomNavBar widget (sesuai dengan Dashboard)
+      bottomNavigationBar: BottomNavBar(
+        currentIndex: _selectedNavIndex,
+        onTap: _onNavTap,
       ),
       ),
     );
