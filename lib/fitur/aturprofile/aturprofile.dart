@@ -50,7 +50,9 @@ class MyApp extends StatelessWidget {
 // 2. HALAMAN PROFIL (REAL DB CONNECTION)
 // ------------------------------------------------------------------
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final bool isAdmin;
+  
+  const ProfileScreen({super.key, this.isAdmin = false});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -66,18 +68,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _getProfileData();
-  }
-
-  @override
-  void didUpdateWidget(covariant ProfileScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    print('[ProfileScreen] Widget updated - Refreshing profile data');
+    print('[ProfileScreen] initState - isAdmin=${widget.isAdmin}');
     _getProfileData();
   }
 
   // MURNI AMBIL DARI DATABASE
   Future<void> _getProfileData() async {
+    // Jika admin, gunakan data statis
+    if (widget.isAdmin) {
+      if (mounted) {
+        setState(() {
+          _name = "admin";
+          _email = "admin@gmail.com";
+        });
+      }
+      return;
+    }
+
     try {
       final user = supabase.auth.currentUser;
       
