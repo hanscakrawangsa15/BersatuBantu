@@ -6,6 +6,8 @@ import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
 import 'package:bersatubantu/fitur/auth/lupapassword/resetpassword.dart';
 import 'package:bersatubantu/fitur/auth/login/organization_login_screen.dart';
 import 'package:bersatubantu/fitur/auth/login/admin_dashboard_screen.dart';
+import 'package:bersatubantu/fitur/dashboard/dashboard_screen.dart';
+import 'package:bersatubantu/test_dashboard_debug.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +25,9 @@ Future<void> main() async {
     url: dotenv.env['SUPABASE_URL'] ?? '',
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
+
+  // Run diagnostic test
+  await testDashboardQuery();
 
   runApp(const MyApp());
 }
@@ -90,6 +95,14 @@ class _MyAppState extends State<MyApp> {
       // Tambahkan route handler untuk web reset password
       onGenerateRoute: (settings) {
         print('[Router] Navigating to: ${settings.name}');
+        
+        // Handle /home route (organization dashboard)
+        if (settings.name == '/home') {
+          print('[Router] Navigating to DashboardScreen');
+          return MaterialPageRoute(
+            builder: (context) => const DashboardScreen(),
+          );
+        }
         
         // Handle /organization_login route
         if (settings.name == '/organization_login') {

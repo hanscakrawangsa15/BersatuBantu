@@ -1,8 +1,11 @@
 class OrganizationVerificationData {
+  String? verificationId;
   String? organizationId;
   String? ownerName;
   String? ownerNik;
   String? ownerAddress;
+  String? ownerEmail;  // ← NEW: for email_pemilik
+  String? ownerPhone;  // ← NEW: for no_telpon_pemilik
   String? orgLegalName;
   String? orgNpwp;
   String? orgRegistrationNo;
@@ -12,12 +15,16 @@ class OrganizationVerificationData {
   String? docAktaPath;
   String? docNpwpPath;
   String? docOtherPath;
+  String? orgPassword;
 
   OrganizationVerificationData({
+    this.verificationId,
     this.organizationId,
     this.ownerName,
     this.ownerNik,
     this.ownerAddress,
+    this.ownerEmail,  // ← NEW
+    this.ownerPhone,  // ← NEW
     this.orgLegalName,
     this.orgNpwp,
     this.orgRegistrationNo,
@@ -27,6 +34,7 @@ class OrganizationVerificationData {
     this.docAktaPath,
     this.docNpwpPath,
     this.docOtherPath,
+    this.orgPassword,
   });
 
   bool get isOwnerDataComplete =>
@@ -38,8 +46,6 @@ class OrganizationVerificationData {
       ownerAddress!.isNotEmpty;
 
   bool get isOrgDataComplete =>
-      organizationId != null &&
-      organizationId!.isNotEmpty &&
       orgLegalName != null &&
       orgLegalName!.isNotEmpty &&
       orgNpwp != null &&
