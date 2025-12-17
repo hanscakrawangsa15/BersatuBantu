@@ -5,6 +5,7 @@ import 'package:bersatubantu/fitur/pilihrole/role_selection_screen.dart';
 import 'package:bcrypt/bcrypt.dart';
 import 'package:bersatubantu/fitur/verifikasi_organisasi/screens/verification_flow.dart';
 import 'package:bersatubantu/fitur/verifikasi_organisasi/screens/waiting_verification_screen.dart';
+import 'package:bersatubantu/fitur/dashboard/dashboard_organisasi.dart';
 
 class OrganizationLoginScreen extends StatefulWidget {
   const OrganizationLoginScreen({super.key});
@@ -120,17 +121,23 @@ class _OrganizationLoginScreenState extends State<OrganizationLoginScreen> {
       }
 
       if (status == 'approve') {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Selamat datang $orgName!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+        if (!mounted) return;
 
-          // Navigate to home/dashboard
-          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Selamat datang $orgName!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DashboardScreenOrganisasi(
+              requestId: orgResponse['request_id'] as int,
+            ),
+          ),
+        );
       }
     } on PostgrestException catch (e) {
       if (mounted) {
