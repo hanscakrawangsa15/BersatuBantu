@@ -645,17 +645,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         Navigator.pop(context, true); // Return true to indicate data was updated
       }
 
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Jika Gagal (Internet mati / Error DB)
       print('[EditProfile] Error updating profile: $e');
-      _showErrorDialog();
+      print('[EditProfile] Stack trace: $stackTrace');
+      if (mounted) {
+        _showErrorDialog('Gagal menyimpan profil: $e');
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   // Dialog Error Exception Flow
-  void _showErrorDialog() {
+  void _showErrorDialog([String? errorMessage]) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -672,10 +675,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: const Icon(Icons.priority_high, size: 30, color: Colors.black),
             ),
             const SizedBox(height: 15),
-            const Text(
-              "Gagal Menyimpan Perubahan",
+            Text(
+              errorMessage ?? "Gagal Menyimpan Perubahan",
               textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 20),
             SizedBox(
