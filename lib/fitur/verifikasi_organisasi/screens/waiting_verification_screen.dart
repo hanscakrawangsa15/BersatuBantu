@@ -5,11 +5,13 @@ import 'package:bersatubantu/fitur/auth/login/organization_login_screen.dart';
 class WaitingVerificationScreen extends StatefulWidget {
   final String organizationId;
   final String organizationName;
+  final String organizationEmail;
 
   const WaitingVerificationScreen({
     super.key,
     required this.organizationId,
     required this.organizationName,
+    required this.organizationEmail,
   });
 
   @override
@@ -32,19 +34,28 @@ class _WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
   Future<String> _checkVerificationStatus() async {
     try {
       final response = await supabase
-          .from('organization_verifications')
+          .from('organization_request')
           .select('status')
-          .eq('id', widget.organizationId)
+          .eq('email_organisasi', widget.organizationEmail)
           .maybeSingle();
 
       if (response == null) {
-        return 'pending';
+        return 'not_found';
       }
 
-      return response['status'] as String? ?? 'pending';
-    } catch (e) {
-      print('Error checking status: $e');
+      final status = response['status'] as String?;
+      print('[Waiting] Status: $status');
+
+      if (status == 'approve') {
+        return 'approved';
+      } else if (status == 'reject') {
+        return 'rejected';
+      }
+
       return 'pending';
+    } catch (e) {
+      print('[Waiting] Error: $e');
+      return 'error';
     }
   }
 
@@ -75,15 +86,19 @@ class _WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
                       const OrganizationLoginScreen(),
                   transitionsBuilder:
                       (context, animation, secondaryAnimation, child) {
-                    const begin = Offset(1.0, 0.0);
-                    const end = Offset.zero;
-                    const curve = Curves.easeInOut;
-                    var tween = Tween(begin: begin, end: end)
-                        .chain(CurveTween(curve: curve));
-                    var offsetAnimation = animation.drive(tween);
-                    return SlideTransition(
-                        position: offsetAnimation, child: child);
-                  },
+                        const begin = Offset(1.0, 0.0);
+                        const end = Offset.zero;
+                        const curve = Curves.easeInOut;
+                        var tween = Tween(
+                          begin: begin,
+                          end: end,
+                        ).chain(CurveTween(curve: curve));
+                        var offsetAnimation = animation.drive(tween);
+                        return SlideTransition(
+                          position: offsetAnimation,
+                          child: child,
+                        );
+                      },
                   transitionDuration: const Duration(milliseconds: 400),
                 ),
               );
@@ -158,21 +173,14 @@ class _WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
                 decoration: BoxDecoration(
                   color: Colors.blue[50],
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.blue[200]!,
-                    width: 1,
-                  ),
+                  border: Border.all(color: Colors.blue[200]!, width: 1),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          Icons.info,
-                          color: Colors.blue[600],
-                          size: 20,
-                        ),
+                        Icon(Icons.info, color: Colors.blue[600], size: 20),
                         const SizedBox(width: 8),
                         const Expanded(
                           child: Text(
@@ -208,10 +216,7 @@ class _WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
               const SizedBox(height: 16),
               Text(
                 'Halaman ini akan otomatis refresh',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[500],
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
               ),
             ],
           ),
@@ -237,11 +242,7 @@ class _WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
                   color: Colors.red.withOpacity(0.1),
                 ),
                 child: const Center(
-                  child: Icon(
-                    Icons.close,
-                    size: 50,
-                    color: Colors.red,
-                  ),
+                  child: Icon(Icons.close, size: 50, color: Colors.red),
                 ),
               ),
               const SizedBox(height: 32),
@@ -276,21 +277,14 @@ class _WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
                 decoration: BoxDecoration(
                   color: Colors.red[50],
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.red[200]!,
-                    width: 1,
-                  ),
+                  border: Border.all(color: Colors.red[200]!, width: 1),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          Icons.warning,
-                          color: Colors.red[600],
-                          size: 20,
-                        ),
+                        Icon(Icons.warning, color: Colors.red[600], size: 20),
                         const SizedBox(width: 8),
                         const Expanded(
                           child: Text(
@@ -328,17 +322,21 @@ class _WaitingVerificationScreenState extends State<WaitingVerificationScreen> {
                       PageRouteBuilder(
                         pageBuilder: (context, animation, secondaryAnimation) =>
                             const OrganizationLoginScreen(),
-                        transitionsBuilder: (context, animation,
-                            secondaryAnimation, child) {
-                          const begin = Offset(-1.0, 0.0);
-                          const end = Offset.zero;
-                          const curve = Curves.easeInOut;
-                          var tween = Tween(begin: begin, end: end)
-                              .chain(CurveTween(curve: curve));
-                          var offsetAnimation = animation.drive(tween);
-                          return SlideTransition(
-                              position: offsetAnimation, child: child);
-                        },
+                        transitionsBuilder:
+                            (context, animation, secondaryAnimation, child) {
+                              const begin = Offset(-1.0, 0.0);
+                              const end = Offset.zero;
+                              const curve = Curves.easeInOut;
+                              var tween = Tween(
+                                begin: begin,
+                                end: end,
+                              ).chain(CurveTween(curve: curve));
+                              var offsetAnimation = animation.drive(tween);
+                              return SlideTransition(
+                                position: offsetAnimation,
+                                child: child,
+                              );
+                            },
                         transitionDuration: const Duration(milliseconds: 400),
                       ),
                     );

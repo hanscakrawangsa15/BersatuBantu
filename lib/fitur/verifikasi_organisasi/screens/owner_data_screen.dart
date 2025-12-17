@@ -232,9 +232,8 @@ class _OwnerDataScreenState extends State<OwnerDataScreen> {
                                   '${_firstNameController.text} ${_lastNameController.text}'
                                       .trim();
                               provider.setField('ownerName', fullName);
-                              provider.setField('ownerNik', ''); // NIK from database atau form lain
-                              provider.setField('ownerAddress', _phoneController.text);
-                              provider.setField('email', _emailController.text);
+                              provider.setField('ownerEmail', _emailController.text);
+                              provider.setField('ownerPhone', _phoneController.text);
                               provider.nextStep();
                             },
                             style: ElevatedButton.styleFrom(
@@ -266,3 +265,4 @@ class _OwnerDataScreenState extends State<OwnerDataScreen> {
     );
   }
 }
+

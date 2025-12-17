@@ -100,6 +100,26 @@ class _DonasiScreenState extends State<DonasiScreen> {
     return DateTime.now().isBefore(endTime);
   }
 
+  // Returns a map with 'text' and 'days' keys describing remaining time
+  Map<String, dynamic> _remainingUntil(String? endTimeStr) {
+    if (endTimeStr == null) return {'text': 'Tidak tersedia', 'days': null};
+
+    try {
+      final end = DateTime.parse(endTimeStr).toLocal();
+      final now = DateTime.now();
+      final diff = end.difference(now);
+      final days = diff.inDays;
+      if (diff.isNegative) return {'text': 'Selesai', 'days': days};
+      if (days >= 1) return {'text': '$days hari lagi', 'days': days};
+      final hours = diff.inHours;
+      if (hours >= 1) return {'text': '$hours jam lagi', 'days': 0};
+      final minutes = diff.inMinutes;
+      return {'text': '$minutes menit lagi', 'days': 0};
+    } catch (e) {
+      return {'text': 'Tidak tersedia', 'days': null};
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -204,21 +224,25 @@ class _DonasiScreenState extends State<DonasiScreen> {
         ),
       ),
       
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const PostingKegiatanDonasiScreen(),
-            ),
-          );
-          
-          if (result == true) {
-            _loadDonations();
-          }
-        },
-        backgroundColor: const Color(0xFF5A6F8F),
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: kBottomNavigationBarHeight + 12),
+        child: FloatingActionButton(
+          onPressed: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const PostingKegiatanDonasiScreen(),
+              ),
+            );
+            
+            if (result == true) {
+              _loadDonations();
+            }
+          },
+          backgroundColor: const Color(0xFF5A6F8F),
+          child: const Icon(Icons.add, color: Colors.white, size: 28),
+        ),
       ),
     );
   }
@@ -391,6 +415,37 @@ class _DonasiScreenState extends State<DonasiScreen> {
                         ),
                       ),
                     ),
+                  // Remaining time highlight badge when 1..5 days left
+                  Builder(builder: (context) {
+                    final rem = _remainingUntil(donation['end_time']);
+                    final days = rem['days'];
+                    final highlight = days != null && days >= 1 && days <= 5 && canDonate;
+                    if (!highlight) return const SizedBox.shrink();
+                    final label = days > 1 ? '$days hari' : '$days hari';
+                    return Positioned(
+                      top: 12,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 6),
+                          ],
+                        ),
+                        child: Text(
+                          '$label tersisa',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'CircularStd',
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
                 ],
               ),
               
@@ -448,6 +503,23 @@ class _DonasiScreenState extends State<DonasiScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    // Remaining time text with optional red highlight
+                    Builder(builder: (context) {
+                      final rem = _remainingUntil(donation['end_time']);
+                      final days = rem['days'];
+                      final remText = rem['text'] as String;
+                      final highlight = days != null && days >= 1 && days <= 5 && canDonate;
+                      return Text(
+                        remText,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: highlight ? Colors.redAccent : Colors.grey[600],
+                          fontWeight: highlight ? FontWeight.bold : FontWeight.w500,
+                          fontFamily: 'CircularStd',
+                        ),
+                      );
+                    }),
                   ],
                 ),
               ),
