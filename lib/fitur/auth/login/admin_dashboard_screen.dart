@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:bersatubantu/fitur/dashboard/admin_home.dart';
 import 'admin_login_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -249,28 +250,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            Navigator.of(context).pushReplacement(
-              PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) =>
-                    const AdminLoginScreen(),
-                transitionsBuilder:
-                    (context, animation, secondaryAnimation, child) {
-                      const begin = Offset(-1.0, 0.0);
-                      const end = Offset.zero;
-                      const curve = Curves.easeInOut;
-                      var tween = Tween(
-                        begin: begin,
-                        end: end,
-                      ).chain(CurveTween(curve: curve));
-                      var offsetAnimation = animation.drive(tween);
-                      return SlideTransition(
-                        position: offsetAnimation,
-                        child: child,
-                      );
-                    },
-                transitionDuration: const Duration(milliseconds: 400),
-              ),
-            );
+            Navigator.pop(context);
           },
         ),
         actions: [
