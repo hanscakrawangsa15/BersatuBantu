@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -49,13 +51,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       print('[ForgotPassword] Sending reset email to: ${_emailController.text.trim()}');
       
       // Send password reset email
-      // IMPORTANT: Ganti dengan URL sesuai environment Anda
-      // Untuk web development, gunakan format: http://localhost:PORT/reset-password
-      // Untuk mobile production, gunakan format: io.supabase.bersatubantu://reset-password
-      
+      // IMPORTANT: choose redirect based on platform
+      // For web development, use http://localhost:PORT/#/reset-password
+      // For mobile production, use custom scheme: io.supabase.bersatubantu://reset-password
+      final redirect = kIsWeb
+          ? (dotenv.env['RESET_REDIRECT_WEB'] ?? 'http://localhost:57986/#/reset-password')
+          : (dotenv.env['RESET_REDIRECT_MOBILE'] ?? 'io.supabase.bersatubantu://reset-password');
+
       await supabase.auth.resetPasswordForEmail(
         _emailController.text.trim(),
-        redirectTo: 'http://localhost:57986/#/reset-password', // Untuk Flutter Web
+        redirectTo: redirect,
       );
 
       print('[ForgotPassword] Reset email sent successfully');

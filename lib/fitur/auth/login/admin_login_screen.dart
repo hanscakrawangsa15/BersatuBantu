@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bersatubantu/fitur/pilihrole/role_selection_screen.dart';
-import 'admin_dashboard_screen.dart';
+import 'package:bersatubantu/fitur/dashboard/admin_home.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
@@ -45,7 +45,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(
               pageBuilder: (context, animation, secondaryAnimation) =>
-                  const AdminDashboardScreen(),
+                  const AdminHomeDashboard(),
               transitionsBuilder:
                   (context, animation, secondaryAnimation, child) {
                 const begin = Offset(1.0, 0.0);

@@ -32,3 +32,12 @@ Response example:
 Notes:
 - Do not store Midtrans Server Key in the client app. Keep it on a secure server.
 - You should implement proper validation, logging, retries, and webhook handling in production.
+
+Admin helper endpoint
+---------------------
+This server includes a helper endpoint to create/upsert a `profiles` row using the Supabase service role key:
+
+- POST `/admin/create-profile` with JSON: `{ id, full_name, email }` and header `x-admin-key: <ADMIN_PROFILE_KEY>`
+- Configure `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` and `ADMIN_PROFILE_KEY` in `.env` before enabling this endpoint in production.
+
+Use this endpoint only as a controlled fallback (for example, when DB trigger didn't create the profile during signup) and keep `ADMIN_PROFILE_KEY` secret.
