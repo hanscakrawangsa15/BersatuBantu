@@ -527,7 +527,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               HapticFeedback.lightImpact();
                               Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (context) => const RegisterScreen(),
+                                  builder: (context) => RegisterScreen(selectedRole: widget.selectedRole),
                                 ),
                               );
                             },

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/auth/login/organization_login_screen.dart';
 import 'package:bersatubantu/fitur/auth/login/admin_login_screen.dart';
 import 'package:bersatubantu/fitur/auth/login/login_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
   final String? userId;
@@ -25,13 +26,28 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       _isLoading = true;
     });
 
+    // Map UI choices to DB roles
+    String mappedRole;
+    if (role == 'personal') mappedRole = 'user';
+    else if (role == 'organization') mappedRole = 'volunteer';
+    else if (role == 'admin') mappedRole = 'admin';
+    else mappedRole = 'user';
+
+    // Persist choice so RegisterScreen can read it later if user navigates back
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('selected_role', mappedRole);
+    } catch (e) {
+      print('[RoleSelection] Failed to save selected_role: $e');
+    }
+
     try {
       // Jika pilih Personal, ke login screen (untuk user/volunteer biasa)
       if (role == 'personal') {
         if (mounted) {
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+              pageBuilder: (context, animation, secondaryAnimation) => LoginScreen(selectedRole: mappedRole),
               transitionsBuilder: (context, animation, secondaryAnimation, child) {
                 const begin = Offset(1.0, 0.0);
                 const end = Offset.zero;
