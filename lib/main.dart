@@ -10,13 +10,21 @@ import 'package:bersatubantu/fitur/auth/login/organization_login_screen.dart';
 import 'package:bersatubantu/fitur/auth/login/admin_dashboard_screen.dart';
 import 'package:bersatubantu/fitur/dashboard/dashboard_screen.dart';
 import 'package:bersatubantu/test_dashboard_debug.dart';
+import 'package:provider/provider.dart';
+import 'package:bersatubantu/providers/volunteer_event_provider.dart';
+import 'package:intl/date_symbol_data_local.dart';
+
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Load environment variables
   await dotenv.load(fileName: ".env");
-  
+
+  // Initialize date formatting for Indonesian locale
+  await initializeDateFormatting('id_ID', null);
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -31,9 +39,7 @@ Future<void> main() async {
   // Run diagnostic test
   await testDashboardQuery();
 
-  // If running on web and a Google Maps API key is present in .env, try to inject the
-  // Google Maps JavaScript API automatically so the map can load without manual
-  // index.html edits. This is optional but convenient for local dev.
+  // Inject Google Maps JS (Web only)
   if (kIsWeb) {
     final mapsApiKey = dotenv.env['GOOGLE_MAPS_API_KEY'];
     if (mapsApiKey != null && mapsApiKey.isNotEmpty) {
@@ -44,12 +50,24 @@ Future<void> main() async {
         print('[Maps] Failed to inject Google Maps script: $e');
       }
     } else {
-      print('[Maps] No GOOGLE_MAPS_API_KEY found in .env; web map will require adding the script tag to web/index.html');
+      print(
+        '[Maps] No GOOGLE_MAPS_API_KEY found in .env; web map will require adding the script tag to web/index.html',
+      );
     }
   }
 
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => VolunteerEventProvider(),
+        ),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
+
 
 // Global Supabase client
 final supabase = Supabase.instance.client;
