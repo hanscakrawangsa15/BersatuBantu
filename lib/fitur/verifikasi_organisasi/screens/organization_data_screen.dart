@@ -270,7 +270,7 @@ class _OrganizationDataScreenState extends State<OrganizationDataScreen> {
                               provider.setField('orgLegalName', _nameController.text);
                               provider.setField('phone', _phoneController.text);
                               provider.setField('email', _emailController.text);
-                              // Note: Password will be handled during registration
+                              provider.setField('orgPassword', _passwordController.text);
                               provider.nextStep();
                             },
                             style: ElevatedButton.styleFrom(
