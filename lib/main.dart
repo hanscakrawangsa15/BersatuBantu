@@ -17,20 +17,21 @@ import 'package:bersatubantu/test_dashboard_debug.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Load environment variables
   await dotenv.load(fileName: ".env");
-  
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // Initialize Supabase dengan environment variables
+  // Initialize Supabase
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL'] ?? '',
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
+
   // Initialize intl locale data for date/time formatting
   await initializeDateFormatting('id_ID');
   Intl.defaultLocale = 'id_ID';
@@ -39,7 +40,6 @@ Future<void> main() async {
   try {
     await testDashboardQuery();
   } catch (e) {
-    // don't fail startup for diagnostics
     print('[Diag] testDashboardQuery failed: $e');
   }
 
@@ -82,16 +82,27 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _setupAuthListener() {
-    // Listen untuk auth state changes termasuk password recovery
     supabase.auth.onAuthStateChange.listen((data) {
       final event = data.event;
-      
       print('[Auth] Event detected: $event');
-      
       if (event == AuthChangeEvent.passwordRecovery) {
-        // User klik link reset password dari email
-        print('[Auth] Password recovery event - navigating to reset screen');
-        child: Builder(
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _navigatorKey.currentState?.pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const ResetPasswordScreen()),
+            (route) => false,
+          );
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => VolunteerEventProvider()),
+      ],
+      child: Builder(
         builder: (context) => MaterialApp(
           navigatorKey: _navigatorKey,
           title: 'BersatuBantu',
@@ -107,35 +118,25 @@ class _MyAppState extends State<MyApp> {
             ),
             useMaterial3: true,
           ),
-          useMaterial3: true,
           onGenerateRoute: (settings) {
             print('[Router] Navigating to: ${settings.name}');
 
-            // Handle /home route (organization dashboard)
             if (settings.name == '/home') {
-              return MaterialPageRoute(
-                builder: (context) => const DashboardScreen(),
-              );
+              return MaterialPageRoute(builder: (context) => const DashboardScreen());
             }
 
             if (settings.name == '/organization_login') {
-              return MaterialPageRoute(
-                builder: (context) => const OrganizationLoginScreen(),
-              );
+              return MaterialPageRoute(builder: (context) => const OrganizationLoginScreen());
             }
 
             if (settings.name == '/admin_dashboard') {
-              return MaterialPageRoute(
-                builder: (context) => const AdminDashboardScreen(),
-              );
+              return MaterialPageRoute(builder: (context) => const AdminDashboardScreen());
             }
 
             if (settings.name == '/reset-password' ||
                 settings.name?.contains('reset-password') == true ||
                 settings.name?.contains('#/reset-password') == true) {
-              return MaterialPageRoute(
-                builder: (context) => const ResetPasswordScreen(),
-              );
+              return MaterialPageRoute(builder: (context) => const ResetPasswordScreen());
             }
 
             return null;
@@ -164,33 +165,13 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
       ),
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-            );
-          }
-          
-          // Cek apakah ada recovery session
-          final session = supabase.auth.currentSession;
-          if (session != null) {
-            print('[Init] Has session: ${session.user.id}');
-            // Auth listener akan handle navigation ke reset password
-            // jika ini adalah recovery session
-          }
-          
-          // Default ke splash screen
-          return const SplashScreen();
-        },
->>>>>>> 275b674d980c74dde7aae4989e47f262b14fa41a
-      ),
     );
   }
 
   Future<void> _checkInitialAuth() async {
-    // Tunggu sebentar untuk auth state listener setup
+    // small delay to allow auth listener setup
     await Future.delayed(const Duration(milliseconds: 300));
-    
-    // Log current auth state
+
     final session = supabase.auth.currentSession;
     if (session != null) {
       print('[Init] Current user: ${session.user.email}');

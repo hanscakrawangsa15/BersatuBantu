@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 // Web interop
+// ignore_for_file: uri_does_not_exist, avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:js_util' as js_util;
 import 'dart:html' as html;
 
