@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/maps_availability.dart';
@@ -35,6 +36,13 @@ class _BerikanDonasiScreenState extends State<BerikanDonasiScreen> {
   String _donationType = 'uang'; // 'uang' atau 'barang'
 
   final List<String> _paymentMethods = ['OVO', 'ShopeePay', 'GoPay'];
+
+  // Local cache for updated campaign fields (after webhook)
+  int? _latestCollectedAmount;
+  // Store last midtrans id for the current donation flow (used to check status)
+  String? _lastMidtransId;
+
+  String _formatCurrency(int amount) => 'Rp ${_formatNumber(amount)}';
 
   // Map related
   LatLng? _campaignPosition;
@@ -176,7 +184,76 @@ class _BerikanDonasiScreenState extends State<BerikanDonasiScreen> {
           ? int.parse(_amountController.text.replaceAll('.', ''))
           : 0;
 
-      // Insert donation transaction
+      // If it's a money donation, start Midtrans payment flow via backend
+      if (_donationType == 'uang') {
+        final orderId = 'don-${widget.donation['id']}-${DateTime.now().millisecondsSinceEpoch}';
+
+        // Call backend to create a Midtrans transaction (server must use Server Key)
+        final res = await _createMidtransTransactionOnServer(
+          amount: amount,
+          orderId: orderId,
+          name: _isAnonymous ? 'Anonim' : _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          paymentMethod: _selectedPaymentMethod,
+        );
+
+        // Insert transaction with status 'pending'. NOTE: Do NOT update collected amount here.
+        // Try to extract Midtrans payment id from backend response so we can map webhooks later.
+        final midtransId = (res['raw'] is Map) ? (res['raw']['id'] ?? res['raw']['payment_link_id'] ?? res['raw']['external_id'] ?? res['raw']['order_id']) : (res['id'] ?? res['payment_link_id'] ?? res['external_id'] ?? null);
+
+        await supabase.from('donation_transactions').insert({
+          'campaign_id': widget.donation['id'],
+          'donor_id': user.id,
+          'donor_name': _isAnonymous ? 'Anonim' : _nameController.text.trim(),
+          'donor_email': _emailController.text.trim(),
+          'amount': amount,
+          'donation_type': _donationType,
+          'payment_method': _donationType == 'uang' ? _selectedPaymentMethod : null,
+          'message': _messageController.text.trim(),
+          'address': _donationType == 'barang' ? _addressController.text.trim() : null,
+          'is_anonymous': _isAnonymous,
+          'status': 'pending',
+          'midtrans_order_id': midtransId,
+          'created_at': DateTime.now().toIso8601String(),
+        });
+
+        // Launch payment URL returned by backend (support common response fields)
+        final paymentUrl = res['redirect_url'] ?? res['payment_url'] ?? res['redirectUrl'] ?? res['url'] ?? res['payment_link_url'] ?? res['invoice_url'];
+        if (paymentUrl != null && paymentUrl is String && paymentUrl.isNotEmpty) {
+          await _launchPaymentUrl(paymentUrl);
+
+          // After launching the payment page, prompt the user to check the payment status
+          if (mounted) {
+            final action = await showDialog<String>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Pembayaran dimulai'),
+                content: const Text('Selesaikan pembayaran pada halaman yang terbuka. Ketuk "Periksa sekarang" untuk mengecek status pembayaran.'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.of(ctx).pop('nanti'), child: const Text('Nanti')),
+                  TextButton(onPressed: () => Navigator.of(ctx).pop('periksa'), child: const Text('Periksa sekarang')),
+                ],
+              ),
+            );
+
+            if (action == 'periksa') {
+              // Store midtrans id locally (if available) and check status
+              _lastMidtransId = midtransId?.toString();
+              await _checkTransactionStatus(_lastMidtransId);
+            }
+
+            // Close the donation screen (keep behavior similar to before)
+            Navigator.pop(context, true);
+          }
+        } else {
+          throw 'Server tidak mengembalikan URL pembayaran.';
+        }
+
+        // Note: final settlement must be handled by server-side webhook which updates transaction status
+        return;
+      }
+
+      // For goods donations (jenis barang), proceed as before
       await supabase.from('donation_transactions').insert({
         'campaign_id': widget.donation['id'],
         'donor_id': user.id,
@@ -191,17 +268,6 @@ class _BerikanDonasiScreenState extends State<BerikanDonasiScreen> {
         'status': 'pending',
         'created_at': DateTime.now().toIso8601String(),
       });
-
-      // Update collected amount hanya jika donasi uang
-      if (_donationType == 'uang') {
-        final currentCollected = widget.donation['collected_amount'] ?? 0;
-        await supabase
-            .from('donation_campaigns')
-            .update({
-              'collected_amount': currentCollected + amount,
-            })
-            .eq('id', widget.donation['id']);
-      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -232,13 +298,122 @@ class _BerikanDonasiScreenState extends State<BerikanDonasiScreen> {
     }
   }
 
+  // Helper: call backend to create Midtrans transaction. Server must use Server Key securely.
+  Future<Map<String, dynamic>> _createMidtransTransactionOnServer({
+    required int amount,
+    required String orderId,
+    required String name,
+    required String email,
+    required String paymentMethod,
+  }) async {
+    final endpoint = dotenv.env['MIDTRANS_CREATE_TRANSACTION_URL'];
+    if (endpoint == null || endpoint.isEmpty) {
+      throw 'MIDTRANS_CREATE_TRANSACTION_URL belum dikonfigurasi di .env';
+    }
+
+    // If the configured URL points directly to a Midtrans payment link (e.g. https://app.sandbox.midtrans.com/payment-links/...),
+    // treat it as a static redirect URL and return it directly. This is a convenience for quick testing with a pre-created payment link.
+    // For proper integration you should instead set MIDTRANS_CREATE_TRANSACTION_URL to your backend endpoint which calls Midtrans using the Server Key.
+    final lowEndpoint = endpoint.toLowerCase();
+    if (lowEndpoint.contains('midtrans.com/payment-links')) {
+      // Return the payment link as redirect URL (no POST required).
+      return {'redirect_url': endpoint};
+    }
+
+    final payload = {
+      'order_id': orderId,
+      'gross_amount': amount,
+      'payment_method': paymentMethod,
+      'customer': {
+        'first_name': name,
+        'email': email,
+      },
+      'item_details': [
+        {
+          'id': widget.donation['id']?.toString() ?? 'donation',
+          'price': amount,
+          'quantity': 1,
+          'name': widget.donation['title'] ?? 'Donasi',
+        }
+      ],
+    };
+
+    http.Response resp;
+    try {
+      resp = await http.post(
+        Uri.parse(endpoint),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      );
+    } catch (e) {
+      // Common failure here is CORS or network issues when calling an external domain directly.
+      throw 'Gagal menghubungi server pembuatan transaksi: ${e.toString()}. Pastikan MIDTRANS_CREATE_TRANSACTION_URL mengarah ke backend Anda (lihat docs).';
+    }
+
+    if (resp.statusCode != 200) {
+      throw 'Gagal membuat transaksi: ${resp.statusCode} ${resp.body}';
+    }
+
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  Future<void> _launchPaymentUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (!await canLaunchUrl(uri)) {
+      throw 'Tidak dapat membuka URL pembayaran';
+    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _refreshCampaign() async {
+    try {
+      final resp = await supabase.from('donation_campaigns').select('collected_amount').eq('id', widget.donation['id']).maybeSingle();
+      if (resp != null) {
+        setState(() {
+          _latestCollectedAmount = (resp['collected_amount'] ?? 0) as int;
+        });
+      }
+    } catch (e) {
+      print('[BerikanDonasi] Error refreshing campaign: $e');
+    }
+  }
+
+  Future<void> _checkTransactionStatus(String? midtransId) async {
+    if (midtransId == null || midtransId.isEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ID pembayaran tidak tersedia'), backgroundColor: Colors.orange));
+      return;
+    }
+
+    try {
+      final tx = await supabase.from('donation_transactions').select('status,amount,campaign_id').eq('midtrans_order_id', midtransId).maybeSingle();
+      if (tx == null) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Transaksi belum ditemukan'), backgroundColor: Colors.orange));
+        return;
+      }
+
+      final status = (tx['status'] ?? '').toString();
+      final amount = (tx['amount'] ?? 0) as int;
+
+      final settled = ['settlement', 'paid', 'capture', 'completed'];
+      if (settled.contains(status.toLowerCase())) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Donasi masuk: ${_formatCurrency(amount)}'), backgroundColor: Colors.green));
+        await _refreshCampaign();
+      } else {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Status pembayaran: $status'), backgroundColor: Colors.orange));
+      }
+    } catch (e) {
+      print('[BerikanDonasi] Error checking tx status: $e');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal memeriksa status pembayaran'), backgroundColor: Colors.red));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final title = widget.donation['title'] ?? 'Untitled';
     final description = widget.donation['description'] ?? '';
     final imageUrl = widget.donation['cover_image_url'];
     final targetAmount = widget.donation['target_amount'] ?? 1;
-    final collectedAmount = widget.donation['collected_amount'] ?? 0;
+    final collectedAmount = _latestCollectedAmount ?? (widget.donation['collected_amount'] ?? 0);
     final progress = collectedAmount / targetAmount;
     final daysRemaining = _getDaysRemaining();
 

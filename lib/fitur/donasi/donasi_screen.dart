@@ -224,21 +224,25 @@ class _DonasiScreenState extends State<DonasiScreen> {
         ),
       ),
       
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const PostingKegiatanDonasiScreen(),
-            ),
-          );
-          
-          if (result == true) {
-            _loadDonations();
-          }
-        },
-        backgroundColor: const Color(0xFF5A6F8F),
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: kBottomNavigationBarHeight + 12),
+        child: FloatingActionButton(
+          onPressed: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const PostingKegiatanDonasiScreen(),
+              ),
+            );
+            
+            if (result == true) {
+              _loadDonations();
+            }
+          },
+          backgroundColor: const Color(0xFF5A6F8F),
+          child: const Icon(Icons.add, color: Colors.white, size: 28),
+        ),
       ),
     );
   }
