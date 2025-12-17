@@ -8,7 +8,6 @@ import 'package:bersatubantu/fitur/donasi/donasi_screen.dart';
 import 'package:bersatubantu/fitur/berikandonasi/berikandonasi.dart';
 import 'package:bersatubantu/fitur/aturprofile/aturprofile.dart';
 import 'package:bersatubantu/fitur/chat/screens/chat_list_screen.dart';
-import 'package:bersatubantu/fitur/chat/screens/chat_debug_screen.dart';
 
 // --- IMPORT UNTUK NAVIGASI BERITA ---
 import 'package:bersatubantu/fitur/berita_sosial/models/berita_model.dart';
@@ -295,11 +294,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         _onRoutePopped(result);
         break;
       case 2:
-<<<<<<< HEAD
         // Navigate to Aksi screen (TODO)
         print('[Dashboard] Navigate to Aksi');
-=======
->>>>>>> 6119d188fbebc1d4049b75bdcce684f7317902e9
         setState(() {
           _selectedIndex = index;
         });
@@ -418,28 +414,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         Icons.chat_bubble_outline_rounded,
                         color: Colors.white,
                         size: 24,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // DEBUG BUTTON - TEMPORARY
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const ChatDebugScreen()),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.red[700],
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Icon(
-                        Icons.bug_report,
-                        color: Colors.white,
-                        size: 20,
                       ),
                     ),
                   ),
