@@ -205,15 +205,15 @@ class _PostingKegiatanScreenState extends State<PostingKegiatanScreen> {
         : await _selectedImage!.readAsBytes();
 
     final fileName = 'aksi_${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final path = 'donations/$fileName';
+    final path = 'postingaksi/$fileName';
 
-    await supabase.storage.from('donations').uploadBinary(
+    await supabase.storage.from('postingaksi').uploadBinary(
       path,
       bytes,
       fileOptions: const FileOptions(upsert: false),
     );
 
-    return supabase.storage.from('donations').getPublicUrl(path);
+    return supabase.storage.from('postingaksi').getPublicUrl(path);
   }
 
   // ===== POST KEGIATAN =====

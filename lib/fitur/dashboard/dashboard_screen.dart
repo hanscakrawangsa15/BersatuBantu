@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart'; // Add intl package to pubspec.yaml if needed for formatting
+import 'package:intl/intl.dart';
 import 'dart:async';
 
 // Existing Imports
@@ -8,7 +8,6 @@ import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
 import 'package:bersatubantu/fitur/donasi/donasi_screen.dart'; 
 import 'package:bersatubantu/fitur/berikandonasi/berikandonasi.dart';
 import 'package:bersatubantu/fitur/aturprofile/aturprofile.dart';
-
 import 'package:bersatubantu/fitur/aksi/aksi_screen.dart';
 import 'package:bersatubantu/fitur/chat/screens/chat_list_screen.dart';
 import 'package:bersatubantu/fitur/berita_sosial/models/berita_model.dart';
@@ -22,18 +21,15 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
-  // Refresh user data when returning from other screens
   void _onRoutePopped(dynamic result) {
-    // Trigger immediate refresh
     _loadUserData();
-    
-    // Trigger delayed refresh to ensure data loaded properly (useful if DB update is slow)
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
         _loadUserData();
       }
     });
   }
+
   final supabase = Supabase.instance.client;
   late final StreamSubscription<AuthState> _authSubscription;
 
@@ -42,17 +38,26 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   String _userName = '';
   bool _isLoadingUser = true;
   
-  // Campaigns
   bool _isLoadingCampaigns = true;
   List<Map<String, dynamic>> _campaigns = [];
 
-  // News Data (Dynamic)
   bool _isLoadingNews = true;
   List<Map<String, dynamic>> _featuredNews = [];
   List<Map<String, dynamic>> _popularNews = [];
 
   final List<String> _categories = [
-    'Semua', 'Bencana Alam', 'Kemiskinan', 'Hak Asasi',
+    'Semua',
+    'Bencana Alam',
+    'Kemiskinan',
+    'Hak Asasi',
+  ];
+
+  String _selectedDonationCategory = 'Semua';
+  final List<String> _donationCategories = [
+    'Semua',
+    'Bencana Alam',
+    'Kemiskinan',
+    'Hak Asasi',
   ];
 
   @override
@@ -74,7 +79,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
     _loadUserData();
     _loadCampaigns();
-    _loadNews(); // Call the new function
+    _loadNews();
   }
 
   @override
@@ -84,11 +89,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     super.dispose();
   }
 
-  // --- FETCH NEWS FROM DATABASE ---
   Future<void> _loadNews() async {
     setState(() => _isLoadingNews = true);
     try {
-      // Fetch all news ordered by creation date
       final response = await supabase
           .from('news')
           .select()
@@ -98,12 +101,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         final List<Map<String, dynamic>> allNews = List<Map<String, dynamic>>.from(response);
         
         setState(() {
-          // Filter popular news based on 'is_popular' flag or logic
           _popularNews = allNews.where((news) => news['is_popular'] == true).toList();
-          // The rest (or all) go to featured
           _featuredNews = allNews.where((news) => news['is_popular'] != true).toList();
           
-          // Fallback if no popular flag is set in DB
           if (_popularNews.isEmpty && allNews.isNotEmpty) {
              _popularNews = allNews.take(3).toList();
              _featuredNews = allNews.skip(3).toList();
@@ -117,7 +117,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
   }
 
-  // --- EXISTING DATA LOADERS (User & Campaigns) ---
   Future<void> _loadUserData() async {
     setState(() => _isLoadingUser = true);
     try {
@@ -147,7 +146,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     try {
       final response = await supabase
           .from('donation_campaigns')
-          .select('id, title, cover_image_url, end_time, description, target_amount, collected_amount, location, location_name')
+          .select('id, title, cover_image_url, end_time, description, target_amount, collected_amount, location, location_name, category')
           .eq('status', 'active')
           .order('end_time', ascending: true)
           .limit(50);
@@ -155,18 +154,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         setState(() => _campaigns = List<Map<String, dynamic>>.from(response));
       }
     } catch (e) {
+      print('[Dashboard] Error loading campaigns: $e');
       setState(() => _campaigns = []);
     } finally {
       if (mounted) setState(() => _isLoadingCampaigns = false);
     }
   }
 
-  // --- HELPER FORMATTING FUNCTIONS ---
   String _formatDate(String? dateStr) {
     if (dateStr == null) return '';
     try {
       final date = DateTime.parse(dateStr).toLocal();
-      // Simple format: 29 Juni 2024 (You can use DateFormat from intl package for better results)
       return "${date.day}/${date.month}/${date.year}"; 
     } catch (e) {
       return dateStr;
@@ -197,18 +195,46 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     return 'Selamat malam,';
   }
 
+  // Helper function to get category color
+  Color _getCategoryColor(String? category) {
+    if (category == null) return Colors.grey;
+    switch (category.toLowerCase()) {
+      case 'bencana alam':
+        return const Color(0xFFE57373); // Red
+      case 'kemiskinan':
+        return const Color(0xFF81C784); // Green
+      case 'hak asasi':
+        return const Color(0xFF64B5F6); // Blue
+      default:
+        return Colors.grey;
+    }
+  }
+
+  // Helper function to get category icon
+  IconData _getCategoryIcon(String? category) {
+    if (category == null) return Icons.category;
+    switch (category.toLowerCase()) {
+      case 'bencana alam':
+        return Icons.warning_rounded;
+      case 'kemiskinan':
+        return Icons.volunteer_activism_rounded;
+      case 'hak asasi':
+        return Icons.account_balance_rounded;
+      default:
+        return Icons.category;
+    }
+  }
+
   void _onNavTap(int index) async {
     if (index == _selectedIndex) return;
 
     switch (index) {
       case 0:
-        // Beranda
         setState(() {
           _selectedIndex = index;
         });
         break;
       case 1:
-        // Donasi Screen - Uses _onRoutePopped to refresh data on return
         setState(() {
           _selectedIndex = index;
         });
@@ -219,20 +245,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         _onRoutePopped(result);
         break;
       case 2:
-        // Aksi Screen
         setState(() {
           _selectedIndex = index;
         });
-        // Uncomment the lines below if you have created AksiScreen
-        /* final resultAksi = await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const AksiScreen()),
-        );
-        _onRoutePopped(resultAksi);
-        */
         break;
       case 3:
-        // Profile Screen
         setState(() {
           _selectedIndex = index;
         });
@@ -240,7 +257,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           context,
           MaterialPageRoute(builder: (context) => const ProfileScreen()),
         );
-        // Refresh data and reset tab to 0 (Home)
         _loadUserData();
         setState(() {
           _selectedIndex = 0;
@@ -250,7 +266,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }
 
   void _navigateToNewsDetail(Map<String, dynamic> news) {
-    // Map DB columns to Model
     final beritaData = BeritaModel(
       id: news['id'].toString(),
       judul: news['title'] ?? 'Tanpa Judul',
@@ -266,7 +281,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       MaterialPageRoute(
         builder: (context) => DetailBeritaScreen(
           berita: beritaData,
-          isAdmin: false, // User mode
+          isAdmin: false,
         ),
       ),
     );
@@ -425,59 +440,287 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Donasi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF364057))),
-                                GestureDetector(
-                                  onTap: () => _loadCampaigns(),
-                                  child: Text(_isLoadingCampaigns ? 'Memuat...' : 'Lihat Semua', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                                const Text(
+                                  'Donasi',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF364057),
+                                    fontFamily: 'CircularStd',
+                                  ),
                                 ),
+                                Row(children: [
+                                  GestureDetector(
+                                    onTap: () => _showDonationCategoryDialog(),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      margin: const EdgeInsets.only(right: 8),
+                                      decoration: BoxDecoration(
+                                        color: _selectedDonationCategory != 'Semua' 
+                                            ? _getCategoryColor(_selectedDonationCategory).withOpacity(0.2)
+                                            : const Color(0xFFEFEFF4),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: _selectedDonationCategory != 'Semua'
+                                            ? Border.all(color: _getCategoryColor(_selectedDonationCategory), width: 1.5)
+                                            : null,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            _selectedDonationCategory != 'Semua'
+                                                ? _getCategoryIcon(_selectedDonationCategory)
+                                                : Icons.category_rounded,
+                                            size: 14,
+                                            color: _selectedDonationCategory != 'Semua'
+                                                ? _getCategoryColor(_selectedDonationCategory)
+                                                : const Color(0xFF364057),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            _selectedDonationCategory,
+                                            style: TextStyle(
+                                              color: _selectedDonationCategory != 'Semua'
+                                                  ? _getCategoryColor(_selectedDonationCategory)
+                                                  : Colors.grey[700],
+                                              fontSize: 12,
+                                              fontWeight: _selectedDonationCategory != 'Semua'
+                                                  ? FontWeight.w600
+                                                  : FontWeight.normal,
+                                              fontFamily: 'CircularStd',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (context) => const DonasiScreen()),
+                                      );
+                                      _loadCampaigns();
+                                    },
+                                    child: Text(
+                                      'Lihat Semua',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: const Color(0xFF8FA3CC),
+                                        fontWeight: FontWeight.w600,
+                                        fontFamily: 'CircularStd',
+                                      ),
+                                    ),
+                                  ),
+                                ]),
                               ],
                             ),
                             const SizedBox(height: 12),
-                            // Campaigns List
-                            SizedBox(
-                              height: 160,
-                              child: _isLoadingCampaigns
-                                  ? const Center(child: CircularProgressIndicator())
-                                  : _campaigns.isEmpty
-                                      ? const Center(child: Text('Tidak ada kampanye aktif'))
-                                      : ListView.builder(
-                                          scrollDirection: Axis.horizontal,
-                                          itemCount: _campaigns.length,
-                                          itemBuilder: (context, idx) {
-                                            final c = _campaigns[idx];
-                                            final rem = _remainingUntil(c['end_time']);
-                                            return GestureDetector(
-                                              onTap: () async {
-                                                // Donation logic
-                                                await Navigator.push(context, MaterialPageRoute(builder: (context) => BerikanDonasiScreen(donation: c)));
-                                              },
-                                              child: Container(
-                                                width: 300,
-                                                margin: const EdgeInsets.only(right: 12),
-                                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6)]),
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Container(
-                                                      height: 84,
-                                                      width: double.infinity,
+                            
+                            // Donation Campaigns List with Filter
+                            Builder(builder: (context) {
+                              // Apply category filter
+                              final filteredCampaigns = _selectedDonationCategory == 'Semua'
+                                  ? _campaigns
+                                  : _campaigns.where((c) {
+                                      final category = (c['category'] ?? '').toString();
+                                      return category.toLowerCase() == _selectedDonationCategory.toLowerCase();
+                                    }).toList();
+
+                              if (_isLoadingCampaigns) {
+                                return const SizedBox(
+                                  height: 160,
+                                  child: Center(child: CircularProgressIndicator(color: Color(0xFF8FA3CC))),
+                                );
+                              }
+                              
+                              if (filteredCampaigns.isEmpty) {
+                                return SizedBox(
+                                  height: 160,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.search_off_rounded, size: 48, color: Colors.grey[400]),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          _selectedDonationCategory == 'Semua'
+                                              ? 'Tidak ada kampanye aktif'
+                                              : 'Tidak ada kampanye untuk\nkategori $_selectedDonationCategory',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 14,
+                                            fontFamily: 'CircularStd',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              return SizedBox(
+                                height: 200,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: filteredCampaigns.length,
+                                  itemBuilder: (context, idx) {
+                                    final c = filteredCampaigns[idx];
+                                    final rem = _remainingUntil(c['end_time'] as String?);
+                                    final days = rem['days'];
+                                    final remText = rem['text'] as String;
+                                    final highlight = days != null && days >= 1 && days <= 5;
+                                    final canDonate = c['end_time'] != null
+                                        ? (DateTime.tryParse(c['end_time'])?.isAfter(DateTime.now()) ?? true)
+                                        : true;
+                                    final category = c['category'] as String?;
+
+                                    return GestureDetector(
+                                      onTap: () async {
+                                        await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => BerikanDonasiScreen(donation: c),
+                                          ),
+                                        );
+                                        _loadCampaigns();
+                                      },
+                                      child: Container(
+                                        width: 300,
+                                        margin: const EdgeInsets.only(right: 12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(12),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.08),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Stack(
+                                              children: [
+                                                Container(
+                                                  height: 120,
+                                                  width: double.infinity,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.grey[300],
+                                                    borderRadius: const BorderRadius.only(
+                                                      topLeft: Radius.circular(12),
+                                                      topRight: Radius.circular(12),
+                                                    ),
+                                                    image: c['cover_image_url'] != null
+                                                        ? DecorationImage(
+                                                            image: NetworkImage(c['cover_image_url']),
+                                                            fit: BoxFit.cover,
+                                                          )
+                                                        : null,
+                                                  ),
+                                                  child: c['cover_image_url'] == null
+                                                      ? Icon(Icons.image, size: 40, color: Colors.grey[400])
+                                                      : null,
+                                                ),
+                                                // Category Badge
+                                                if (category != null)
+                                                  Positioned(
+                                                    top: 8,
+                                                    left: 8,
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                       decoration: BoxDecoration(
-                                                        color: Colors.grey[300],
-                                                        borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
-                                                        image: c['cover_image_url'] != null ? DecorationImage(image: NetworkImage(c['cover_image_url']), fit: BoxFit.cover) : null,
+                                                        color: _getCategoryColor(category),
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.black.withOpacity(0.15),
+                                                            blurRadius: 4,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Icon(
+                                                            _getCategoryIcon(category),
+                                                            size: 12,
+                                                            color: Colors.white,
+                                                          ),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            category,
+                                                            style: const TextStyle(
+                                                              color: Colors.white,
+                                                              fontSize: 10,
+                                                              fontWeight: FontWeight.w600,
+                                                            ),
+                                                          ),
+                                                        ],
                                                       ),
                                                     ),
-                                                    Padding(
-                                                      padding: const EdgeInsets.all(8.0),
-                                                      child: Text(c['title'] ?? 'Kegiatan', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                                    )
-                                                  ],
-                                                ),
+                                                  ),
+                                                // Urgent Badge
+                                                if (highlight)
+                                                  Positioned(
+                                                    bottom: 8,
+                                                    right: 8,
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.orangeAccent,
+                                                        borderRadius: BorderRadius.circular(12),
+                                                      ),
+                                                      child: Text(
+                                                        '$days hari lagi',
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            Padding(
+                                              padding: const EdgeInsets.all(12.0),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    c['title'] ?? 'Kegiatan',
+                                                    maxLines: 2,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 14,
+                                                      fontFamily: 'CircularStd',
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    remText,
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: highlight ? Colors.orangeAccent : Colors.grey[600],
+                                                      fontWeight: highlight ? FontWeight.w600 : FontWeight.normal,
+                                                      fontFamily: 'CircularStd',
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                            );
-                                          },
+                                            ),
+                                          ],
                                         ),
-                            ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              );
+                            }),
                             
                             const SizedBox(height: 24),
 
@@ -553,6 +796,75 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
             BottomNavBar(currentIndex: _selectedIndex, onTap: _onNavTap),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showDonationCategoryDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Pilih Kategori Donasi',
+          style: TextStyle(
+            fontFamily: 'CircularStd',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: _donationCategories.map((category) {
+            final isSelected = _selectedDonationCategory == category;
+            return InkWell(
+              onTap: () {
+                setState(() {
+                  _selectedDonationCategory = category;
+                });
+                Navigator.pop(context);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? _getCategoryColor(category).withOpacity(0.1) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected ? _getCategoryColor(category) : Colors.grey[300]!,
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _getCategoryIcon(category),
+                      size: 20,
+                      color: isSelected ? _getCategoryColor(category) : Colors.grey[600],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        category,
+                        style: TextStyle(
+                          fontFamily: 'CircularStd',
+                          fontSize: 14,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          color: isSelected ? _getCategoryColor(category) : Colors.grey[800],
+                        ),
+                      ),
+                    ),
+                    if (isSelected)
+                      Icon(
+                        Icons.check_circle,
+                        color: _getCategoryColor(category),
+                        size: 20,
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
         ),
       ),
     );
