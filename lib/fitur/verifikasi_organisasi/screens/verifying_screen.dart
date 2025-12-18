@@ -67,6 +67,7 @@ class _VerifyingScreenState extends State<VerifyingScreen>
             print('[Verifying] ✅ Approved! Moving to success screen');
             final provider = context.read<OrganizationVerificationProvider>();
             provider.currentStep = 4;
+            // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
             provider.notifyListeners();
             break;
           } else if (status == 'reject') {

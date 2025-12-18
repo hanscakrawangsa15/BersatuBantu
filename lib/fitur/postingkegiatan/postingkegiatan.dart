@@ -1,50 +1,43 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import '../../utils/place_service.dart';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import '../../utils/place_service.dart';
 import '../../utils/maps_availability.dart';
 import 'dart:async';
 
-class PostingKegiatanDonasiScreen extends StatefulWidget {
-  const PostingKegiatanDonasiScreen({super.key});
+class PostingKegiatanScreen extends StatefulWidget {
+    final int requestId;
+
+  const PostingKegiatanScreen({
+    super.key,
+    required this.requestId,
+  });
 
   @override
-  State<PostingKegiatanDonasiScreen> createState() => _PostingKegiatanDonasiScreenState();
+  State<PostingKegiatanScreen> createState() => _PostingKegiatanScreenState();
 }
 
-class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final supabase = Supabase.instance.client;
-  
+class _PostingKegiatanScreenState extends State<PostingKegiatanScreen> {
+    final _formKey = GlobalKey<FormState>();
+    final supabase = Supabase.instance.client;
+
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _targetAmountController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
-  
-  // Category for donation (saved to DB column `category`)
-  String _selectedCategory = 'Bencana Alam';
-  final List<String> _categories = [
-    'Bencana Alam',
-    'Kemiskinan',
-    'Hak Asasi',
-  ];
 
   File? _selectedImage;
-  Uint8List? _imageBytes; 
-  String? _imageUrl;
+  Uint8List? _imageBytes;
   bool _isLoading = false;
-  bool _isSavingDraft = false;
+  DateTime? _selectedStartDate;
   DateTime? _selectedEndDate;
-  bool _isInjectingMap = false;
   
   // Location data
   double? _latitude;
@@ -55,78 +48,50 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _targetAmountController.dispose();
     _locationController.dispose();
     super.dispose();
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _ensureUserIsOrganization();
+  String _formatDate(DateTime date) {
+    final months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
-  Future<void> _ensureUserIsOrganization() async {
-    try {
-      final user = supabase.auth.currentUser;
-      if (user == null) return;
-      final resp = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-      final role = resp == null ? null : (resp['role'] as String?);
-      if (role != 'organization') {
-        if (mounted) {
-          await showDialog<void>(
-            context: context,
-            builder: (c) => AlertDialog(
-              title: const Text('Akses Ditolak'),
-              content: const Text('Hanya akun organisasi yang dapat memposting kegiatan.'),
-              actions: [
-                TextButton(onPressed: () => Navigator.of(c).pop(), child: const Text('Tutup')),
-              ],
+  Future<void> _selectStartDate() async {
+    final DateTime now = DateTime.now();
+    final DateTime firstDate = now;
+    final DateTime lastDate = now.add(const Duration(days: 365));
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedStartDate ?? now,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF8FA3CC),
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF364057),
             ),
-          );
-          Navigator.of(context).maybePop();
-        }
-      }
-    } catch (e) {
-      print('[PostingDonasi] Role check failed: $e');
-    }
-  }
-
-
-
-  Future<void> _pickImage() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1080,
-        imageQuality: 85,
-      );
-
-      if (image != null) {
-        final bytes = await image.readAsBytes();
-        
-        setState(() {
-          if (!kIsWeb) {
-            _selectedImage = File(image.path);
-          }
-          _imageBytes = bytes;
-        });
-      }
-    } catch (e) {
-      print('[PostingDonasi] Error picking image: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal memilih gambar: ${e.toString()}'),
-            backgroundColor: Colors.red,
           ),
+          child: child!,
         );
-      }
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedStartDate = DateTime(picked.year, picked.month, picked.day, 0, 0, 0);
+      });
     }
   }
 
+  // ===== PICK IMAGE =====
   Future<void> _selectEndDate() async {
     final DateTime now = DateTime.now();
     final DateTime firstDate = now.add(const Duration(days: 1));
@@ -211,275 +176,119 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
     }
   }
 
-  // Show a user-friendly dialog when the DB is missing expected location columns
-  void _showMissingColumnDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Kolom database hilang'),
-        content: const Text('''Kolom untuk menyimpan lokasi (location_name/location) tidak ditemukan di tabel `donation_campaigns` pada database.
-Silakan tambahkan kolom `location_name` (text) dan `location` (jsonb) di Supabase (atau sesuaikan sesuai skema Anda).
-
-Jika Anda lebih suka tidak menjalankan migrasi dari repo, Anda bisa menambahkan kolom tersebut langsung melalui Supabase SQL editor atau panel admin.'''),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Tutup'),
-          ),
-        ],
-      ),
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 1920,
+      maxHeight: 1080,
     );
-  }
- 
 
-  String _formatDate(DateTime date) {
-    final months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
-  }
-
-  Future<void> _ensureOrganizationExists(String userId) async {
-    try {
-      final response = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (response == null) {
-        final user = supabase.auth.currentUser!;
-        await supabase.from('organizations').insert({
-          'id': userId,
-          'name': user.userMetadata?['name'] ?? 'Organization',
-          'email': user.email,
-          'created_at': DateTime.now().toIso8601String(),
-        });
-        print('[PostingDonasi] Organization created for user: $userId');
-      }
-    } catch (e) {
-      print('[PostingDonasi] Error ensuring organization: $e');
+    if (image != null) {
+      final bytes = await image.readAsBytes();
+      setState(() {
+        if (!kIsWeb) {
+          _selectedImage = File(image.path);
+        }
+        _imageBytes = bytes;
+      });
     }
   }
 
+  // ===== UPLOAD IMAGE =====
   Future<String?> _uploadImage() async {
     if (_imageBytes == null && _selectedImage == null) return null;
 
-    try {
-      print('[PostingDonasi] Uploading image...');
-      
-      Uint8List bytes;
-      String fileExt;
-      
-      if (kIsWeb) {
-        bytes = _imageBytes!;
-        fileExt = 'jpg';
-      } else {
-        bytes = await _selectedImage!.readAsBytes();
-        fileExt = _selectedImage!.path.split('.').last;
-      }
-      
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
-      final filePath = 'donations/$fileName';
+    final bytes = kIsWeb
+        ? _imageBytes!
+        : await _selectedImage!.readAsBytes();
 
-      try {
-        await supabase.storage.from('donations').uploadBinary(
-          filePath,
-          bytes,
-          fileOptions: FileOptions(
-            contentType: 'image/$fileExt',
-            upsert: false,
-          ),
-        );
-      } on StorageException catch (e) {
-        if (e.statusCode == '404') {
-          throw 'Bucket "donations" tidak ditemukan. Silakan buat bucket di Supabase Storage terlebih dahulu.';
-        }
-        rethrow;
-      }
+    final fileName = 'aksi_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final path = 'donations/$fileName';
 
-      final imageUrl = supabase.storage.from('donations').getPublicUrl(filePath);
-      print('[PostingDonasi] Image uploaded: $imageUrl');
-      
-      return imageUrl;
-    } catch (e) {
-      print('[PostingDonasi] Error uploading image: $e');
-      if (e is String) {
-        throw e;
-      }
-      throw 'Gagal mengupload gambar: ${e.toString()}';
-    }
+    await supabase.storage.from('donations').uploadBinary(
+      path,
+      bytes,
+      fileOptions: const FileOptions(upsert: false),
+    );
+
+    return supabase.storage.from('donations').getPublicUrl(path);
   }
 
-  Future<void> _saveDraft() async {
-    setState(() {
-      _isSavingDraft = true;
-    });
+  // ===== POST KEGIATAN =====
+  Future<void> _postKegiatan() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
 
     try {
-      final user = supabase.auth.currentUser;
-      if (user == null) {
-        throw 'Anda harus login terlebih dahulu';
+
+        
+
+        final imageUrl = await _uploadImage();
+    
+
+      // Validate that the provided requestId exists and is approved in organization_request
+        if (widget.requestId <= 0) {
+        throw 'Tidak ada request ID. Pastikan Anda sudah login atau kirimkan requestId yang valid.';
+        } 
+        final orgCheck = await supabase
+        .from('organization_request')
+        .select('request_id')
+        .eq('request_id', widget.requestId)
+        .eq('status', 'approve')
+        .maybeSingle();
+
+
+      // debug log
+      print('[PostingKegiatan] organization_request check: $orgCheck');
+
+      if (orgCheck == null) {
+        throw 'Organisasi tidak ditemukan atau belum disetujui (status != approve).';
       }
+      final requestId = orgCheck['request_id'] as int;
 
-      await _ensureOrganizationExists(user.id);
-
-      String? imageUrl;
-      if (_imageBytes != null || _selectedImage != null) {
-        imageUrl = await _uploadImage();
-      }
-
-      final targetAmount = _targetAmountController.text.trim().isEmpty
-          ? 0
-          : int.parse(_targetAmountController.text.replaceAll('.', ''));
-
-      final endTime = _selectedEndDate ?? DateTime.now().add(const Duration(days: 30));
-
-      // Note: We store the human-readable address in `location_name` (text)
-      // and the coordinates in `location` as a JSON object { lat, lng } (jsonb in DB).
-      await supabase.from('donation_campaigns').insert({
-        'organization_id': user.id,
-        'title': _titleController.text.trim().isEmpty 
-            ? 'Draft' 
-            : _titleController.text.trim(),
-        'description': _descriptionController.text.trim(),
-        'target_amount': targetAmount,
-        'collected_amount': 0,
-        'cover_image_url': imageUrl,
-        'status': 'draft',
-        'start_time': DateTime.now().toIso8601String(),
-        'end_time': endTime.toIso8601String(),
-        'location_name': _locationName,
-        'location': (_latitude != null && _longitude != null) ? {
-          'lat': _latitude,
-          'lng': _longitude,
-        } : null,
-        'category': _selectedCategory,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Draft berhasil disimpan'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context, true);
-      }
-    } catch (e) {
-      print('[PostingDonasi] Error saving draft: $e');
-      if (mounted) {
-        final message = e.toString();
-        if (message.contains("Could not find the 'latitude'") || message.contains("Could not find the 'longitude'") || message.contains("Could not find the 'location'") || message.contains("Could not find the 'location_name'")) {
-          _showMissingColumnDialog();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Gagal menyimpan draft: ${e.toString()}'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        }
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSavingDraft = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _postDonation() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    if (_selectedEndDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Silakan pilih tanggal berakhir donasi'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final user = supabase.auth.currentUser;
-      if (user == null) {
-        throw 'Anda harus login terlebih dahulu';
-      }
-
-      await _ensureOrganizationExists(user.id);
-
-      String? imageUrl;
-      if (_imageBytes != null || _selectedImage != null) {
-        imageUrl = await _uploadImage();
-      }
-
-      final targetAmount = int.parse(_targetAmountController.text.replaceAll('.', ''));
-
-      // Store address and coordinates as JSON for DB compatibility
-      await supabase.from('donation_campaigns').insert({
-        'organization_id': user.id,
+      // Insert to events table using request_id as organization_id
+      await supabase.from('events').insert({
+        // 'organization_id': requestId.toString(),
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
-        'target_amount': targetAmount,
-        'collected_amount': 0,
         'cover_image_url': imageUrl,
-        'status': 'active',
-        'start_time': DateTime.now().toIso8601String(),
-        'end_time': _selectedEndDate!.toIso8601String(),
-        'location_name': _locationName,
-        'location': (_latitude != null && _longitude != null) ? {'lat': _latitude, 'lng': _longitude} : null,
-        'category': _selectedCategory,
+        'status': 'open',
+        'category': 'volunteer',
         'created_at': DateTime.now().toIso8601String(),
+        'start_time': (_selectedStartDate ?? DateTime.now()).toIso8601String(),
+        'end_time': _selectedEndDate!.toIso8601String(),
+        'location': _locationName ?? ((_latitude != null && _longitude != null) ? 'Lat: $_latitude, Lng: $_longitude' : null),
+        'city': _locationName,
       });
 
-      print('[PostingDonasi] Donation posted successfully');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Kegiatan donasi berhasil diposting!'),
+            content: Text('Kegiatan berhasil diposting'),
             backgroundColor: Colors.green,
           ),
         );
         Navigator.pop(context, true);
       }
     } catch (e) {
-      print('[PostingDonasi] Error posting donation: $e');
       if (mounted) {
-        final message = e.toString();
-        if (message.contains("Could not find the 'latitude'") || message.contains("Could not find the 'longitude'") || message.contains("Could not find the 'location'") || message.contains("Could not find the 'location_name'")) {
-          _showMissingColumnDialog();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Gagal memposting: ${e.toString()}'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal posting: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  // ===== UI =====
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -500,49 +309,6 @@ Jika Anda lebih suka tidak menjalankan migrasi dari repo, Anda bisa menambahkan 
             fontFamily: 'CircularStd',
           ),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: GestureDetector(
-                onTap: _isSavingDraft ? null : _saveDraft,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8EAF6),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: _isSavingDraft
-                      ? const SizedBox(
-                          width: 40,
-                          height: 16,
-                          child: Center(
-                            child: SizedBox(
-                              width: 12,
-                              height: 12,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Color(0xFF5E72E4),
-                                ),
-                              ),
-                            ),
-                          ),
-                        )
-                      : const Text(
-                          'Draft',
-                          style: TextStyle(
-                            color: Color(0xFF5E72E4),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: 'CircularStd',
-                          ),
-                        ),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
       body: Form(
         key: _formKey,
@@ -636,9 +402,9 @@ Jika Anda lebih suka tidak menjalankan migrasi dari repo, Anda bisa menambahkan 
                 ),
                 const SizedBox(height: 20),
 
-                // Target Donasi
+                // Tanggal Mulai
                 const Text(
-                  'Target Donasi (Rp)',
+                  'Tanggal Mulai',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -647,80 +413,37 @@ Jika Anda lebih suka tidak menjalankan migrasi dari repo, Anda bisa menambahkan 
                   ),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
-                  controller: _targetAmountController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    _ThousandsSeparatorInputFormatter(),
-                  ],
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontFamily: 'CircularStd',
-                  ),
-                  decoration: InputDecoration(
-                    hintText: '0',
-                    prefixText: 'Rp ',
-                    hintStyle: TextStyle(
-                      color: Colors.grey[400],
-                      fontFamily: 'CircularStd',
-                    ),
-                    filled: true,
-                    fillColor: const Color(0xFFF5F6FA),
-                    border: OutlineInputBorder(
+                GestureDetector(
+                  onTap: _selectStartDate,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F6FA),
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _selectedStartDate == null
+                              ? 'Pilih tanggal mulai'
+                              : _formatDate(_selectedStartDate!),
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: _selectedStartDate == null
+                                ? Colors.grey[400]
+                                : const Color(0xFF364057),
+                            fontFamily: 'CircularStd',
+                          ),
+                        ),
+                        Icon(
+                          Icons.calendar_today,
+                          size: 20,
+                          color: Colors.grey[600],
+                        ),
+                      ],
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Target donasi tidak boleh kosong';
-                    }
-                    final amount = int.tryParse(value.replaceAll('.', ''));
-                    if (amount == null || amount <= 0) {
-                      return 'Target donasi harus lebih dari 0';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Kategori
-                const Text(
-                  'Kategori',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF364057),
-                    fontFamily: 'CircularStd',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: _selectedCategory,
-                  items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFFF5F6FA),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  ),
-                  onChanged: (v) {
-                    setState(() {
-                      _selectedCategory = v ?? _selectedCategory;
-                    });
-                  },
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return 'Pilih kategori';
-                    return null;
-                  },
                 ),
                 const SizedBox(height: 20),
 
@@ -905,72 +628,40 @@ Jika Anda lebih suka tidak menjalankan migrasi dari repo, Anda bisa menambahkan 
                 ),
                 const SizedBox(height: 40),
 
-                // Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 50,
-                        child: OutlinedButton(
-                          onPressed: _isLoading ? null : () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(
-                              color: Color(0xFF8FA3CC),
-                              width: 2,
+                // Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _postKegiatan,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF5E72E4),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text(
-                            'Keluar & Simpan',
+                          )
+                        : const Text(
+                            'Post Kegiatan',
                             style: TextStyle(
-                              color: Color(0xFF8FA3CC),
+                              color: Colors.white,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                               fontFamily: 'CircularStd',
                             ),
                           ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: SizedBox(
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _postDonation,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF5E72E4),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                )
-                              : const Text(
-                                  'Post',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    fontFamily: 'CircularStd',
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 20),
               ],
@@ -1298,7 +989,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                       zoom: 15,
                     ),
                     onMapCreated: (controller) {
-                      _mapController = controller;
+                        _mapController = controller;
                     },
                     onTap: _onMapTapped,
                     markers: _markers,
@@ -1358,34 +1049,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                 ),
         ],
       ),
-    );
-  }
-}
-
-// Input Formatter untuk ribuan separator
-class _ThousandsSeparatorInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    if (newValue.text.isEmpty) {
-      return newValue;
-    }
-
-    final number = int.tryParse(newValue.text.replaceAll('.', ''));
-    if (number == null) {
-      return oldValue;
-    }
-
-    final formattedText = number.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    );
-
-    return TextEditingValue(
-      text: formattedText,
-      selection: TextSelection.collapsed(offset: formattedText.length),
     );
   }
 }
