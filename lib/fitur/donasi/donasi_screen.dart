@@ -24,9 +24,8 @@ class _DonasiScreenState extends State<DonasiScreen> {
   final List<String> _categories = [
     'Semua',
     'Bencana Alam',
-    'Pendidikan',
-    'Kesehatan',
     'Kemiskinan',
+    'Hak Asasi',
   ];
 
   @override
@@ -82,8 +81,8 @@ class _DonasiScreenState extends State<DonasiScreen> {
       }
       
       if (_selectedCategory != 'Semua') {
-        final category = donation['description'] ?? '';
-        if (!category.toLowerCase().contains(_selectedCategory.toLowerCase())) {
+        final category = (donation['category'] ?? '').toString();
+        if (category.toLowerCase() != _selectedCategory.toLowerCase()) {
           return false;
         }
       }

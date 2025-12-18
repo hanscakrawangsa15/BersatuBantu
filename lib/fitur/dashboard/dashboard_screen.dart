@@ -40,6 +40,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     'Hak Asasi',
   ];
 
+  // Donation categories (for filtering donation campaigns on dashboard)
+  String _selectedDonationCategory = 'Semua';
+  final List<String> _donationCategories = [
+    'Semua',
+    'Bencana Alam',
+    'Kemiskinan',
+    'Hak Asasi',
+  ];
+
   // DATA DUMMY BERITA (Sudah lengkap dengan ID, Content, Category)
   final List<Map<String, dynamic>> _featuredNews = [
     {
@@ -193,7 +202,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       final response = await supabase
           .from('donation_campaigns')
           .select(
-            'id, title, cover_image_url, end_time, description, target_amount, collected_amount, location, location_name',
+            'id, title, cover_image_url, end_time, description, target_amount, collected_amount, location, location_name, category',
           )
           .eq('status', 'active')
           .order('end_time', ascending: true)
@@ -651,36 +660,58 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                     fontFamily: 'CircularStd',
                                   ),
                                 ),
-                                GestureDetector(
-                                  onTap: () => _loadCampaigns(),
-                                  child: Text(
-                                    _isLoadingCampaigns ? 'Memuat...' : 'Lihat Semua',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey[600],
-                                      fontFamily: 'CircularStd',
+                                Row(children: [
+                                  GestureDetector(
+                                    onTap: () => _showDonationCategoryDialog(),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      margin: const EdgeInsets.only(right: 8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEFEFF4),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.category_rounded, size: 14, color: Color(0xFF364057)),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            _selectedDonationCategory,
+                                            style: TextStyle(color: Colors.grey[700], fontSize: 12, fontFamily: 'CircularStd'),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                ),
+                                  GestureDetector(
+                                    onTap: () => _loadCampaigns(),
+                                    child: Text(
+                                      _isLoadingCampaigns ? 'Memuat...' : 'Lihat Semua',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey[600],
+                                        fontFamily: 'CircularStd',
+                                      ),
+                                    ),
+                                  ),
+                                ]),
                               ],
                             ),
                             const SizedBox(height: 12),
-                            SizedBox(
-                              height: 160,
-                              child: _isLoadingCampaigns
-                                  ? const Center(child: CircularProgressIndicator())
-                                  : _campaigns.isEmpty
-                                      ? Center(
-                                          child: Text(
-                                            'Tidak ada kampanye aktif',
-                                            style: TextStyle(color: Colors.grey[600]),
-                                          ),
-                                        )
-                                      : ListView.builder(
-                                          scrollDirection: Axis.horizontal,
-                                          itemCount: _campaigns.length,
-                                          itemBuilder: (context, idx) {
-                                            final c = _campaigns[idx];
+                            Builder(builder: (context) {
+                              final filteredCampaigns = _selectedDonationCategory == 'Semua'
+                                  ? _campaigns
+                                  : _campaigns.where((c) => (c['category'] ?? '').toString().toLowerCase() == _selectedDonationCategory.toLowerCase()).toList();
+
+                              if (_isLoadingCampaigns) return const SizedBox(height:160, child: Center(child: CircularProgressIndicator()));
+                              if (filteredCampaigns.isEmpty) return const SizedBox(height:160, child: Center(child: Text('Tidak ada kampanye aktif')));
+
+                              return SizedBox(
+                                height: 160,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: filteredCampaigns.length,
+                                  itemBuilder: (context, idx) {
+                                    final c = filteredCampaigns[idx];
                                             final rem = _remainingUntil(c['end_time'] as String?);
                                             final days = rem['days'];
                                             final remText = rem['text'] as String;
@@ -802,6 +833,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                             );
                                           },
                                         ),
+                                );
+                              },
                             ),
                             const SizedBox(height: 24),
 
@@ -930,6 +963,32 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             // Bottom Navigation
             BottomNavBar(currentIndex: _selectedIndex, onTap: _onNavTap),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showDonationCategoryDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Pilih Kategori', style: TextStyle(fontFamily: 'CircularStd')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: _donationCategories.map((category) {
+            return RadioListTile<String>(
+              title: Text(category, style: const TextStyle(fontFamily: 'CircularStd')),
+              value: category,
+              groupValue: _selectedDonationCategory,
+              activeColor: const Color(0xFF8FA3CC),
+              onChanged: (value) {
+                setState(() {
+                  _selectedDonationCategory = value!;
+                });
+                Navigator.pop(context);
+              },
+            );
+          }).toList(),
         ),
       ),
     );

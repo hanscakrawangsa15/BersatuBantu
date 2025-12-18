@@ -30,8 +30,16 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
   final TextEditingController _targetAmountController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
   
+  // Category for donation (saved to DB column `category`)
+  String _selectedCategory = 'Bencana Alam';
+  final List<String> _categories = [
+    'Bencana Alam',
+    'Kemiskinan',
+    'Hak Asasi',
+  ];
+
   File? _selectedImage;
-  Uint8List? _imageBytes;
+  Uint8List? _imageBytes; 
   String? _imageUrl;
   bool _isLoading = false;
   bool _isSavingDraft = false;
@@ -315,6 +323,7 @@ Jika Anda lebih suka tidak menjalankan migrasi dari repo, Anda bisa menambahkan 
           'lat': _latitude,
           'lng': _longitude,
         } : null,
+        'category': _selectedCategory,
         'created_at': DateTime.now().toIso8601String(),
       });
 
@@ -399,6 +408,7 @@ Jika Anda lebih suka tidak menjalankan migrasi dari repo, Anda bisa menambahkan 
         'end_time': _selectedEndDate!.toIso8601String(),
         'location_name': _locationName,
         'location': (_latitude != null && _longitude != null) ? {'lat': _latitude, 'lng': _longitude} : null,
+        'category': _selectedCategory,
         'created_at': DateTime.now().toIso8601String(),
       });
 
@@ -642,6 +652,41 @@ Jika Anda lebih suka tidak menjalankan migrasi dari repo, Anda bisa menambahkan 
                     if (amount == null || amount <= 0) {
                       return 'Target donasi harus lebih dari 0';
                     }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Kategori
+                const Text(
+                  'Kategori',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF364057),
+                    fontFamily: 'CircularStd',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedCategory,
+                  items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: const Color(0xFFF5F6FA),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                  onChanged: (v) {
+                    setState(() {
+                      _selectedCategory = v ?? _selectedCategory;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) return 'Pilih kategori';
                     return null;
                   },
                 ),
