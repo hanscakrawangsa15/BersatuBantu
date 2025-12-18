@@ -146,6 +146,7 @@ flutter pub get
 #### 3. Setup Supabase
 
 Project ini menggunakan file `.env` untuk menyimpan konfigurasi environment (Supabase).
+<img width="1615" height="884" alt="supabase-schema-kkacuemmgvgtyhgmxidy (1)" src="https://github.com/user-attachments/assets/07f3e886-13f2-4974-87b3-90e6f50c0202" />
 
 ```bash
 Copy dari file `envcopy` ke `.env`
