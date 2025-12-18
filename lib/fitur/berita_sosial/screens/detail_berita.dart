@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // 1. Add Supabase import
 import 'package:bersatubantu/fitur/berita_sosial/models/berita_model.dart';
 import 'package:bersatubantu/fitur/berita_sosial/screens/edit_berita.dart';
 
 class DetailBeritaScreen extends StatefulWidget {
   final BeritaModel berita;
-  final bool isAdmin; // Flag to determine access level
+  final bool isAdmin;
 
   const DetailBeritaScreen({
     super.key, 
     required this.berita, 
-    this.isAdmin = false, // Default is false (User mode)
+    this.isAdmin = false,
   });
 
   @override
@@ -17,6 +18,7 @@ class DetailBeritaScreen extends StatefulWidget {
 }
 
 class _DetailBeritaScreenState extends State<DetailBeritaScreen> {
+  final supabase = Supabase.instance.client; // 2. Init Supabase
   late BeritaModel currentBerita;
 
   @override
@@ -25,6 +27,7 @@ class _DetailBeritaScreenState extends State<DetailBeritaScreen> {
     currentBerita = widget.berita;
   }
 
+  // --- DELETE LOGIC ---
   void _confirmDelete() {
     showDialog(
       context: context,
@@ -52,13 +55,27 @@ class _DetailBeritaScreenState extends State<DetailBeritaScreen> {
                   child: const Text("Tidak", style: TextStyle(color: Colors.grey)),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    // TODO: Call API to delete data here
-                    Navigator.pop(context); // Close Dialog
-                    Navigator.pop(context); // Close Screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Berita berhasil dihapus")),
-                    );
+                  onPressed: () async {
+                    try {
+                      // 1. Delete from Database
+                      await supabase.from('news').delete().eq('id', currentBerita.id);
+                      
+                      if (context.mounted) {
+                        Navigator.pop(context); // Close Dialog
+                        Navigator.pop(context, true); // Close Screen & return 'true' to indicate deletion
+                        
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Berita berhasil dihapus")),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        Navigator.pop(context); // Close dialog even on error
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Gagal menghapus: $e"), backgroundColor: Colors.red),
+                        );
+                      }
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.indigo,
@@ -76,7 +93,6 @@ class _DetailBeritaScreenState extends State<DetailBeritaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Helper for image provider
     ImageProvider? imageProvider;
     if (currentBerita.image.isNotEmpty) {
       if (currentBerita.image.startsWith('http')) {
@@ -94,7 +110,6 @@ class _DetailBeritaScreenState extends State<DetailBeritaScreen> {
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        // Only show actions if user is Admin
         actions: widget.isAdmin 
           ? [
               IconButton(
@@ -111,6 +126,7 @@ class _DetailBeritaScreenState extends State<DetailBeritaScreen> {
                     ),
                   );
 
+                  // Update UI if data changed
                   if (result != null && result is BeritaModel) {
                     setState(() {
                       currentBerita = result;
@@ -120,14 +136,13 @@ class _DetailBeritaScreenState extends State<DetailBeritaScreen> {
               ),
               const SizedBox(width: 16),
             ]
-          : null, // Return null hides the actions section
+          : null,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Category Chip
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -140,15 +155,11 @@ class _DetailBeritaScreenState extends State<DetailBeritaScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            
-            // Title
             Text(
               currentBerita.judul,
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            
-            // Date & Source
             Row(
               children: [
                 Icon(Icons.calendar_today, size: 14, color: Colors.grey[500]),
@@ -172,8 +183,6 @@ class _DetailBeritaScreenState extends State<DetailBeritaScreen> {
               ],
             ),
             const SizedBox(height: 20),
-
-            // Image
             Container(
               height: 200,
               width: double.infinity,
@@ -192,8 +201,6 @@ class _DetailBeritaScreenState extends State<DetailBeritaScreen> {
                   : null,
             ),
             const SizedBox(height: 20),
-
-            // Content
             Text(
               currentBerita.isi,
               style: const TextStyle(fontSize: 16, height: 1.5, color: Colors.black87),

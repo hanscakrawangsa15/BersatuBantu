@@ -75,11 +75,13 @@ class _DonasiScreenState extends State<DonasiScreen> {
 
   List<Map<String, dynamic>> get _filteredDonations {
     return _donations.where((donation) {
+      // Filter by status
       if (_selectedFilter != 'Semua') {
         final status = donation['status'] ?? 'Aktif';
         if (status != _selectedFilter) return false;
       }
       
+      // Filter by category
       if (_selectedCategory != 'Semua') {
         final category = (donation['category'] ?? '').toString();
         if (category.toLowerCase() != _selectedCategory.toLowerCase()) {
@@ -116,6 +118,36 @@ class _DonasiScreenState extends State<DonasiScreen> {
       return {'text': '$minutes menit lagi', 'days': 0};
     } catch (e) {
       return {'text': 'Tidak tersedia', 'days': null};
+    }
+  }
+
+  // Helper function to get category color
+  Color _getCategoryColor(String? category) {
+    if (category == null) return Colors.grey;
+    switch (category.toLowerCase()) {
+      case 'bencana alam':
+        return const Color(0xFFE57373); // Red
+      case 'kemiskinan':
+        return const Color(0xFF81C784); // Green
+      case 'hak asasi':
+        return const Color(0xFF64B5F6); // Blue
+      default:
+        return Colors.grey;
+    }
+  }
+
+  // Helper function to get category icon
+  IconData _getCategoryIcon(String? category) {
+    if (category == null) return Icons.category;
+    switch (category.toLowerCase()) {
+      case 'bencana alam':
+        return Icons.warning_rounded;
+      case 'kemiskinan':
+        return Icons.volunteer_activism_rounded;
+      case 'hak asasi':
+        return Icons.account_balance_rounded;
+      default:
+        return Icons.category;
     }
   }
 
@@ -168,7 +200,7 @@ class _DonasiScreenState extends State<DonasiScreen> {
                           Expanded(
                             child: _buildFilterButton(
                               icon: Icons.filter_list_rounded,
-                              label: 'Filter',
+                              label: _selectedFilter,
                               onTap: () => _showFilterDialog(),
                             ),
                           ),
@@ -176,7 +208,7 @@ class _DonasiScreenState extends State<DonasiScreen> {
                           Expanded(
                             child: _buildFilterButton(
                               icon: Icons.category_rounded,
-                              label: 'Category',
+                              label: _selectedCategory == 'Semua' ? 'Kategori' : _selectedCategory,
                               onTap: () => _showCategoryDialog(),
                             ),
                           ),
@@ -265,13 +297,16 @@ class _DonasiScreenState extends State<DonasiScreen> {
           children: [
             Icon(icon, size: 20, color: const Color(0xFF8FA3CC)),
             const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF364057),
-                fontFamily: 'CircularStd',
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF364057),
+                  fontFamily: 'CircularStd',
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -302,7 +337,9 @@ class _DonasiScreenState extends State<DonasiScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Buat kegiatan donasi pertama Anda\ndengan menekan tombol +',
+            _selectedCategory != 'Semua' 
+                ? 'Tidak ada donasi untuk kategori $_selectedCategory'
+                : 'Buat kegiatan donasi pertama Anda\ndengan menekan tombol +',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -322,6 +359,7 @@ class _DonasiScreenState extends State<DonasiScreen> {
     final collectedAmount = donation['collected_amount'] ?? 0;
     final progress = collectedAmount / targetAmount;
     final canDonate = _canDonate(donation);
+    final category = donation['category'] as String?;
     
     return GestureDetector(
       onTap: () async {
@@ -390,6 +428,49 @@ class _DonasiScreenState extends State<DonasiScreen> {
                             ),
                           ),
                   ),
+                  // Category Badge (Top Left)
+                  if (category != null)
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getCategoryColor(category),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getCategoryIcon(category),
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              category,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'CircularStd',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  // Status Badge (Top Right)
                   if (!canDonate)
                     Positioned(
                       top: 12,
@@ -422,12 +503,12 @@ class _DonasiScreenState extends State<DonasiScreen> {
                     if (!highlight) return const SizedBox.shrink();
                     final label = days > 1 ? '$days hari' : '$days hari';
                     return Positioned(
-                      top: 12,
-                      left: 12,
+                      bottom: 12,
+                      right: 12,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.redAccent,
+                          color: Colors.orangeAccent,
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 6),

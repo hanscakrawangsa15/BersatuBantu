@@ -72,7 +72,7 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
       if (user == null) return;
       final resp = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
       final role = resp == null ? null : (resp['role'] as String?);
-      if (role != 'organization') {
+      if (role != 'organization' && role != 'user') {
         if (mounted) {
           await showDialog<void>(
             context: context,
@@ -280,8 +280,11 @@ Jika Anda lebih suka tidak menjalankan migrasi dari repo, Anda bisa menambahkan 
         fileExt = _selectedImage!.path.split('.').last;
       }
       
+      // Simpan file dengan struktur folder per user agar tidak tabrakan dan memudahkan policy RLS
+      final userId = supabase.auth.currentUser!.id;
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
-      final filePath = 'donations/$fileName';
+      // Catatan: 'donations' di bawah adalah folder di dalam bucket 'donations', bukan nama bucket lagi
+      final filePath = 'donations/$userId/$fileName';
 
       try {
         await supabase.storage.from('donations').uploadBinary(
@@ -293,7 +296,7 @@ Jika Anda lebih suka tidak menjalankan migrasi dari repo, Anda bisa menambahkan 
           ),
         );
       } on StorageException catch (e) {
-        if (e.statusCode == '404') {
+        if (e.statusCode == 404) {
           throw 'Bucket "donations" tidak ditemukan. Silakan buat bucket di Supabase Storage terlebih dahulu.';
         }
         rethrow;

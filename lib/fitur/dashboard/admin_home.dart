@@ -26,66 +26,17 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> with AutomaticK
   // Static admin profile
   static const String ADMIN_USERNAME = 'admin';
   
-  // Campaigns (Connected to Supabase)
+  // Campaigns State
   bool _isLoadingCampaigns = true;
   List<Map<String, dynamic>> _campaigns = [];
 
+  // News State (Dynamic)
+  bool _isLoadingNews = true;
+  List<Map<String, dynamic>> _featuredNews = [];
+  List<Map<String, dynamic>> _popularNews = [];
+
   final List<String> _categories = [
     'Semua', 'Bencana Alam', 'Kemiskinan', 'Hak Asasi',
-  ];
-
-  // News Data (Static)
-  final List<Map<String, dynamic>> _featuredNews = [
-    {
-      'id': '1',
-      'title': 'KPK Tangkap Bupati Lampung Selatan',
-      'date': '29 Juni 2024',
-      'time': '10:18 WIB',
-      'source': 'Kompas.com',
-      'image': 'assets/news1.jpg',
-      'category': 'Hukum',
-      'content': 'Komisi Pemberantasan Korupsi (KPK) melakukan operasi tangkap tangan (OTT) di Lampung Selatan...',
-    },
-    {
-      'id': '2',
-      'title': 'Pena Kemi',
-      'date': '30 Juni 2024',
-      'time': '08:00 WIB',
-      'source': 'Media',
-      'image': 'assets/news2.jpg',
-      'category': 'Pendidikan',
-      'content': 'Program Pena Kemi diluncurkan untuk membantu anak-anak putus sekolah...',
-    },
-  ];
-
-  final List<Map<String, dynamic>> _popularNews = [
-    {
-      'id': '3',
-      'title': 'Banjir Hingga Longsor Landa',
-      'source': 'Detik.com',
-      'image': 'assets/popular1.jpg',
-      'date': 'Hari ini',
-      'category': 'Bencana Alam',
-      'content': 'Hujan deras yang mengguyur wilayah Bogor menyebabkan banjir bandang...',
-    },
-    {
-      'id': '4',
-      'title': 'Bencana Tanah Terjang Diungkapkan',
-      'source': 'Detik.com',
-      'image': 'assets/popular2.jpg',
-      'date': 'Kemarin',
-      'category': 'Lingkungan',
-      'content': 'Ahli geologi mengungkapkan potensi pergerakan tanah...',
-    },
-    {
-      'id': '5',
-      'title': '27 Barang disita',
-      'source': 'Detik.com',
-      'image': 'assets/popular3.jpg',
-      'date': '2 Jam lalu',
-      'category': 'Kriminal',
-      'content': 'Polisi menyita 27 barang bukti dari lokasi kejadian perkara...',
-    },
   ];
 
   @override
@@ -94,102 +45,119 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> with AutomaticK
   @override
   void initState() {
     super.initState();
-    _loadCampaigns(); // Fetch campaigns from Database
+    // Load both Campaigns and News from Database
+    _loadCampaigns(); 
+    _loadNews();
   }
 
-  // --- DATABASE CONNECTION FOR CAMPAIGNS ---
-  Future<void> _loadCampaigns() async {
-    setState(() {
-      _isLoadingCampaigns = true;
-    });
+  // --- 1. FETCH NEWS FROM SUPABASE ---
+  Future<void> _loadNews() async {
+    setState(() => _isLoadingNews = true);
+    try {
+      final response = await supabase
+          .from('news')
+          .select()
+          .order('created_at', ascending: false);
 
+      if (response != null) {
+        final List<Map<String, dynamic>> allNews = List<Map<String, dynamic>>.from(response);
+        
+        setState(() {
+          // Split into Popular vs Featured based on DB flag
+          _popularNews = allNews.where((n) => n['is_popular'] == true).toList();
+          _featuredNews = allNews.where((n) => n['is_popular'] != true).toList();
+          
+          // Fallback logic if flags aren't set
+          if (_popularNews.isEmpty && allNews.isNotEmpty) {
+             _popularNews = allNews.take(3).toList();
+             _featuredNews = allNews.skip(3).toList();
+          }
+        });
+      }
+    } catch (e) {
+      print('[AdminDashboard] Error loading news: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingNews = false);
+    }
+  }
+
+  // --- 2. FETCH CAMPAIGNS FROM SUPABASE ---
+  Future<void> _loadCampaigns() async {
+    setState(() => _isLoadingCampaigns = true);
     try {
       final response = await supabase
           .from('donation_campaigns')
-          .select(
-            'id, title, cover_image_url, end_time, description, target_amount, collected_amount, location, location_name',
-          )
+          .select('id, title, cover_image_url, end_time, description, target_amount, collected_amount, location, location_name')
           .eq('status', 'active')
           .order('end_time', ascending: true)
           .limit(50);
 
-      if (response != null && response is List) {
-        setState(() {
-          _campaigns = List<Map<String, dynamic>>.from(response);
-        });
-      } else {
-        setState(() {
-          _campaigns = [];
-        });
+      if (response != null) {
+        setState(() => _campaigns = List<Map<String, dynamic>>.from(response));
       }
     } catch (e) {
       print('[AdminDashboard] Error loading campaigns: $e');
-      setState(() {
-        _campaigns = [];
-      });
+      setState(() => _campaigns = []);
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingCampaigns = false;
-        });
-      }
+      if (mounted) setState(() => _isLoadingCampaigns = false);
     }
   }
 
-  // --- HELPER FOR TIME REMAINING ---
+  // --- HELPER: Date Formatting ---
+  String _formatDate(String? dateStr) {
+    if (dateStr == null) return '';
+    try {
+      final date = DateTime.parse(dateStr).toLocal();
+      return "${date.day}/${date.month}/${date.year}"; 
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  // --- HELPER: Time Remaining ---
   Map<String, dynamic> _remainingUntil(String? endTimeStr) {
     if (endTimeStr == null) return {'text': 'Tidak tersedia', 'days': null};
-
     try {
       final end = DateTime.parse(endTimeStr).toLocal();
       final now = DateTime.now();
       final diff = end.difference(now);
-      final days = diff.inDays;
-      if (diff.isNegative) {
-        return {'text': 'Selesai', 'days': days};
-      }
-      if (days >= 1) {
-        return {'text': '$days hari lagi', 'days': days};
-      }
-      final hours = diff.inHours;
-      if (hours >= 1) return {'text': '$hours jam lagi', 'days': 0};
-      final minutes = diff.inMinutes;
-      return {'text': '$minutes menit lagi', 'days': 0};
+      if (diff.isNegative) return {'text': 'Selesai', 'days': diff.inDays};
+      if (diff.inDays >= 1) return {'text': '${diff.inDays} hari lagi', 'days': diff.inDays};
+      return {'text': '${diff.inHours} jam lagi', 'days': 0};
     } catch (e) {
       return {'text': 'Tidak tersedia', 'days': null};
     }
   }
 
-  // --- ADMIN NAVIGATION (FULL ACCESS) ---
-  void _navigateToNewsDetail(Map<String, dynamic> news) {
+  // --- 3. NAVIGATE WITH ADMIN PRIVILEGES ---
+  void _navigateToNewsDetail(Map<String, dynamic> news) async {
     final beritaData = BeritaModel(
-      id: news['id'] ?? DateTime.now().toString(),
+      id: news['id'].toString(),
       judul: news['title'] ?? 'Tanpa Judul',
-      tanggal: news['date'] ?? '',
-      category: news['category'] ?? 'Berita',
-      image: news['image'] ?? '',
-      source: news['source'] ?? 'Sumber tidak diketahui',
-      isi: news['content'] ?? 'Konten berita belum tersedia.',
+      tanggal: _formatDate(news['created_at']),
+      category: news['category'] ?? 'Umum',
+      image: news['image_url'] ?? '',
+      source: news['source'] ?? 'Admin',
+      isi: news['content'] ?? 'Konten tidak tersedia.',
     );
 
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => DetailBeritaScreen(
           berita: beritaData,
-          isAdmin: true, // <<-- KEY: ENABLE EDIT/DELETE FOR ADMIN
+          isAdmin: true, // <<-- THIS ENABLES DELETE/EDIT
         ),
       ),
     );
+
+    // Refresh list when returning (in case item was deleted)
+    _loadNews();
   }
 
   void _onNavTap(int index) async {
     if (index == _selectedIndex) return;
 
-    if (index == 1) {
-       // Placeholder for Admin News List or Add News
-       print("Admin clicked Berita Tab");
-    }
     if (index == 2) {
        await Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
        return;
@@ -230,15 +198,9 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> with AutomaticK
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _getGreeting(),
-                        style: const TextStyle(color: Colors.white, fontSize: 18, fontFamily: 'CircularStd'),
-                      ),
+                      Text(_getGreeting(), style: const TextStyle(color: Colors.white, fontSize: 18, fontFamily: 'CircularStd')),
                       const SizedBox(height: 6),
-                      const Text(
-                        ADMIN_USERNAME,
-                        style: TextStyle(color: Colors.white, fontSize: 32, fontFamily: 'CircularStd', fontWeight: FontWeight.bold),
-                      ),
+                      const Text(ADMIN_USERNAME, style: TextStyle(color: Colors.white, fontSize: 32, fontFamily: 'CircularStd', fontWeight: FontWeight.bold)),
                     ],
                   ),
                   Container(
@@ -272,7 +234,7 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> with AutomaticK
                             Expanded(
                               child: TextField(
                                 decoration: InputDecoration(
-                                  hintText: 'Telusuri Berita (Admin)',
+                                  hintText: 'Telusuri Berita (Admin Mode)',
                                   hintStyle: TextStyle(color: Colors.grey[400], fontFamily: 'CircularStd'),
                                   border: InputBorder.none,
                                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -287,18 +249,7 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> with AutomaticK
                     // Title
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Berita',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF364057),
-                            fontFamily: 'CircularStd',
-                          ),
-                        ),
-                      ),
+                      child: Align(alignment: Alignment.centerLeft, child: Text('Kelola Berita', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF364057), fontFamily: 'CircularStd'))),
                     ),
                     const SizedBox(height: 16),
 
@@ -309,99 +260,66 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> with AutomaticK
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Berita Terbaru Section
-                            const Text(
-                              'Berita Terbaru',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF364057),
-                                fontFamily: 'CircularStd',
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Featured News Cards (Horizontal)
+                            // FEATURED NEWS (Admin View)
                             SizedBox(
                               height: 200,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: _featuredNews.length,
-                                itemBuilder: (context, index) {
-                                  final news = _featuredNews[index];
-                                  return GestureDetector(
-                                    onTap: () => _navigateToNewsDetail(news),
-                                    child: Container(
-                                      width: 280,
-                                      margin: const EdgeInsets.only(right: 12),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF4A5E7C),
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.1),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisAlignment: MainAxisAlignment.end,
-                                          children: [
-                                            Text(news['title'], style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold), maxLines: 2),
-                                            const SizedBox(height: 8),
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                              children: [
-                                                Text(news['date'], style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11)),
-                                                // Visual Cue: Edit Icon
-                                                Container(
-                                                  padding: const EdgeInsets.all(4),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white.withOpacity(0.2),
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                  child: const Icon(Icons.edit, color: Colors.white, size: 14),
-                                                ),
-                                              ],
+                              child: _isLoadingNews 
+                                ? const Center(child: CircularProgressIndicator())
+                                : _featuredNews.isEmpty
+                                  ? const Center(child: Text("Belum ada berita"))
+                                  : ListView.builder(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: _featuredNews.length,
+                                      itemBuilder: (context, index) {
+                                        final news = _featuredNews[index];
+                                        return GestureDetector(
+                                          onTap: () => _navigateToNewsDetail(news),
+                                          child: Container(
+                                            width: 280,
+                                            margin: const EdgeInsets.only(right: 12),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF4A5E7C),
+                                              borderRadius: BorderRadius.circular(16),
                                             ),
-                                          ],
-                                        ),
-                                      ),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(16),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisAlignment: MainAxisAlignment.end,
+                                                children: [
+                                                  Text(news['title'], style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                    children: [
+                                                      Text(_formatDate(news['created_at']), style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11)),
+                                                      // Edit Icon Indicator
+                                                      Container(
+                                                        padding: const EdgeInsets.all(4),
+                                                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+                                                        child: const Icon(Icons.edit, color: Colors.white, size: 14),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  );
-                                },
-                              ),
                             ),
                             
                             const SizedBox(height: 20),
 
-                            // Donasi Section (Connected to DB)
+                            // DONASI SECTION
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'Donasi',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF364057),
-                                    fontFamily: 'CircularStd',
-                                  ),
-                                ),
+                                const Text('Donasi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF364057), fontFamily: 'CircularStd')),
                                 GestureDetector(
                                   onTap: () => _loadCampaigns(),
-                                  child: Text(
-                                    _isLoadingCampaigns ? 'Memuat...' : 'Lihat Semua',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey[600],
-                                      fontFamily: 'CircularStd',
-                                    ),
-                                  ),
+                                  child: Text(_isLoadingCampaigns ? 'Memuat...' : 'Lihat Semua', style: TextStyle(fontSize: 13, color: Colors.grey[600], fontFamily: 'CircularStd')),
                                 ),
                               ],
                             ),
@@ -411,56 +329,21 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> with AutomaticK
                               child: _isLoadingCampaigns
                                   ? const Center(child: CircularProgressIndicator())
                                   : _campaigns.isEmpty
-                                      ? Center(
-                                          child: Text(
-                                            'Tidak ada kampanye aktif',
-                                            style: TextStyle(color: Colors.grey[600]),
-                                          ),
-                                        )
+                                      ? Center(child: Text('Tidak ada kampanye aktif', style: TextStyle(color: Colors.grey[600])))
                                       : ListView.builder(
                                           scrollDirection: Axis.horizontal,
                                           itemCount: _campaigns.length,
                                           itemBuilder: (context, idx) {
                                             final c = _campaigns[idx];
-                                            final rem = _remainingUntil(c['end_time'] as String?);
-                                            final days = rem['days'];
-                                            final remText = rem['text'] as String;
-                                            final highlight = days != null && days >= 1 && days <= 5;
-                                            final canDonate = c['end_time'] != null
-                                                ? (DateTime.tryParse(c['end_time'])?.isAfter(DateTime.now()) ?? true)
-                                                : true;
-
+                                            final rem = _remainingUntil(c['end_time']);
                                             return GestureDetector(
                                               onTap: () async {
-                                                if (!canDonate) {
-                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                    const SnackBar(content: Text('Donasi ini sudah selesai'), backgroundColor: Colors.orange),
-                                                  );
-                                                  return;
-                                                }
-                                                // Admin can also view/donate to campaigns
-                                                final result = await Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) => BerikanDonasiScreen(donation: c),
-                                                  ),
-                                                );
-                                                if (result == true) {
-                                                  _loadCampaigns();
-                                                }
+                                                await Navigator.push(context, MaterialPageRoute(builder: (context) => BerikanDonasiScreen(donation: c)));
                                               },
                                               child: Container(
                                                 width: 300,
-                                                height: 140,
                                                 margin: const EdgeInsets.only(right: 12),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  boxShadow: [
-                                                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0, 3)),
-                                                  ],
-                                                  border: highlight ? Border.all(color: Colors.redAccent, width: 2) : null,
-                                                ),
+                                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6)]),
                                                 child: Column(
                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
@@ -470,51 +353,13 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> with AutomaticK
                                                       decoration: BoxDecoration(
                                                         color: Colors.grey[300],
                                                         borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
-                                                        image: c['cover_image_url'] != null
-                                                            ? DecorationImage(image: NetworkImage(c['cover_image_url']), fit: BoxFit.cover)
-                                                            : null,
+                                                        image: c['cover_image_url'] != null ? DecorationImage(image: NetworkImage(c['cover_image_url']), fit: BoxFit.cover) : null,
                                                       ),
                                                     ),
                                                     Padding(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                                      child: Row(
-                                                        children: [
-                                                          Expanded(
-                                                            child: Column(
-                                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                                              mainAxisSize: MainAxisSize.min,
-                                                              children: [
-                                                                Text(
-                                                                  c['title'] ?? 'Kegiatan',
-                                                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF364057), fontFamily: 'CircularStd'),
-                                                                  maxLines: 2,
-                                                                  overflow: TextOverflow.ellipsis,
-                                                                ),
-                                                                const SizedBox(height: 6),
-                                                                Text(
-                                                                  remText,
-                                                                  style: TextStyle(
-                                                                    color: highlight ? Colors.redAccent : Colors.grey[700],
-                                                                    fontWeight: highlight ? FontWeight.bold : FontWeight.w500,
-                                                                    fontFamily: 'CircularStd',
-                                                                    fontSize: 12,
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                          const SizedBox(width: 8),
-                                                          Container(
-                                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                                            decoration: BoxDecoration(
-                                                              color: const Color(0xFF8FA3CC),
-                                                              borderRadius: BorderRadius.circular(8),
-                                                            ),
-                                                            child: const Text('Donasi', style: TextStyle(color: Colors.white, fontSize: 12)),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
+                                                      padding: const EdgeInsets.all(8.0),
+                                                      child: Text(c['title'] ?? 'Kegiatan', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                                    )
                                                   ],
                                                 ),
                                               ),
@@ -522,82 +367,74 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> with AutomaticK
                                           },
                                         ),
                             ),
-
+                            
                             const SizedBox(height: 24),
-                            const Text('Terpopuler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF364057))),
+                            const Text('Daftar Berita Lainnya', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF364057), fontFamily: 'CircularStd')),
                             const SizedBox(height: 12),
 
-                            // Popular News Grid (Admin View)
-                            GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: 0.75,
-                              ),
-                              itemCount: _popularNews.length,
-                              itemBuilder: (context, index) {
-                                final news = _popularNews[index];
-                                return GestureDetector(
-                                  onTap: () => _navigateToNewsDetail(news),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[300],
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        Expanded(
-                                          flex: 3,
-                                          child: Stack(
-                                            children: [
-                                              Container(
-                                                decoration: BoxDecoration(
-                                                  color: Colors.grey[400],
-                                                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
-                                                  image: news['image'] != null 
-                                                    ? DecorationImage(image: AssetImage(news['image']), fit: BoxFit.cover) 
-                                                    : null,
-                                                ),
-                                                child: news['image'] == null ? const Center(child: Icon(Icons.image)) : null,
-                                              ),
-                                              // Visual Cue: Small edit icon
-                                              Positioned(
-                                                top: 4,
-                                                right: 4,
-                                                child: Container(
-                                                  padding: const EdgeInsets.all(2),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.black.withOpacity(0.5),
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                  child: const Icon(Icons.edit, color: Colors.white, size: 10),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(8),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Expanded(child: Text(news['title'], style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold), maxLines: 3, overflow: TextOverflow.ellipsis)),
-                                                Text(news['source'], style: const TextStyle(fontSize: 9, color: Colors.grey)),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                            // POPULAR NEWS GRID (Admin View)
+                            _isLoadingNews 
+                              ? const SizedBox() 
+                              : GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    childAspectRatio: 0.75,
                                   ),
-                                );
-                              },
-                            ),
+                                  itemCount: _popularNews.length,
+                                  itemBuilder: (context, index) {
+                                    final news = _popularNews[index];
+                                    return GestureDetector(
+                                      onTap: () => _navigateToNewsDetail(news),
+                                      child: Container(
+                                        decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(12)),
+                                        child: Column(
+                                          children: [
+                                            Expanded(
+                                              flex: 3,
+                                              child: Stack(
+                                                children: [
+                                                  Container(
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.grey[400],
+                                                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+                                                      image: news['image_url'] != null ? DecorationImage(image: NetworkImage(news['image_url']), fit: BoxFit.cover) : null,
+                                                    ),
+                                                    child: news['image_url'] == null ? const Center(child: Icon(Icons.image)) : null,
+                                                  ),
+                                                  Positioned(
+                                                    top: 4, right: 4,
+                                                    child: Container(
+                                                      padding: const EdgeInsets.all(2),
+                                                      decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), shape: BoxShape.circle),
+                                                      child: const Icon(Icons.edit, color: Colors.white, size: 10),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 2,
+                                              child: Padding(
+                                                padding: const EdgeInsets.all(8),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Expanded(child: Text(news['title'], style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold), maxLines: 3, overflow: TextOverflow.ellipsis)),
+                                                    Text(news['source'] ?? '', style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                           ],
                         ),
                       ),
@@ -607,7 +444,7 @@ class _AdminHomeDashboardState extends State<AdminHomeDashboard> with AutomaticK
               ),
             ),
 
-            // Bottom Nav
+            // Bottom Navigation
             Container(
               decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
               padding: const EdgeInsets.symmetric(vertical: 8),
