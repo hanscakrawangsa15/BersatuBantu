@@ -7,6 +7,7 @@ import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
 import 'package:bersatubantu/fitur/donasi/donasi_screen.dart'; 
 import 'package:bersatubantu/fitur/berikandonasi/berikandonasi.dart';
 import 'package:bersatubantu/fitur/aturprofile/aturprofile.dart';
+import 'package:bersatubantu/fitur/aksi/aksi_screen.dart';
 import 'package:bersatubantu/fitur/chat/screens/chat_list_screen.dart';
 
 // --- IMPORT UNTUK NAVIGASI BERITA ---
@@ -300,6 +301,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         setState(() {
           _selectedIndex = index;
         });
+        // Navigate to AksiScreen and refresh when returning
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AksiScreen()),
+        );
+        _onRoutePopped(result);
         break;
       case 3:
         setState(() {
