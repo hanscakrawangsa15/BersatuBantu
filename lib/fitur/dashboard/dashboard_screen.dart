@@ -8,6 +8,8 @@ import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
 import 'package:bersatubantu/fitur/donasi/donasi_screen.dart'; 
 import 'package:bersatubantu/fitur/berikandonasi/berikandonasi.dart';
 import 'package:bersatubantu/fitur/aturprofile/aturprofile.dart';
+import 'package:bersatubantu/fitur/aksi/aksi_screen.dart';
+import 'package:bersatubantu/fitur/chat/screens/chat_list_screen.dart';
 import 'package:bersatubantu/fitur/berita_sosial/models/berita_model.dart';
 import 'package:bersatubantu/fitur/berita_sosial/screens/detail_berita.dart';
 

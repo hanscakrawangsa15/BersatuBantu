@@ -321,14 +321,14 @@ class _DashboardScreenState extends State<DashboardScreenOrganisasi> with Widget
         _onRoutePopped(result);
         break;
       case 2:
-        // TODO: Navigate to Aksi screen
+        // Navigate to Aksi screen
         print('[Dashboard] Navigate to Aksi');
         setState(() {
           _selectedIndex = index;
         });
-        final result = await Navigator.push(
+        await Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => AksiScreen(requestId: widget.requestId,)),
+          MaterialPageRoute(builder: (context) => const AksiScreen(forceOrganizationMode: true)),
         );
         break;
       case 3:

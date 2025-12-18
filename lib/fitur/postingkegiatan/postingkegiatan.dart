@@ -249,11 +249,6 @@ class _PostingKegiatanScreenState extends State<PostingKegiatanScreen> {
       }
       final requestId = orgCheck['request_id'] as int;
 
-      
-      if (requestId == null) {
-        throw 'Request ID tidak ditemukan di database.';
-      }
-
       // Insert to events table using request_id as organization_id
       await supabase.from('events').insert({
         // 'organization_id': requestId.toString(),
@@ -265,11 +260,8 @@ class _PostingKegiatanScreenState extends State<PostingKegiatanScreen> {
         'created_at': DateTime.now().toIso8601String(),
         'start_time': (_selectedStartDate ?? DateTime.now()).toIso8601String(),
         'end_time': _selectedEndDate!.toIso8601String(),
-        'location': _locationName,
-        'location': (_latitude != null && _longitude != null) ? {
-          'lat': _latitude,
-          'lng': _longitude,
-        } : null,
+        'location': _locationName ?? ((_latitude != null && _longitude != null) ? 'Lat: $_latitude, Lng: $_longitude' : null),
+        'city': _locationName,
       });
 
 
