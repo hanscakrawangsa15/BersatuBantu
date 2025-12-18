@@ -46,7 +46,8 @@ flutter:
   # Assets untuk logo dan ilustrasi
   assets:
     - assets/bersatubantu.png
-    - .env
+    #- .env
+    - .env.example
   # Fonts configuration
   fonts:
     - family: CircularStd
