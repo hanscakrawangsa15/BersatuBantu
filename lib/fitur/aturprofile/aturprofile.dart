@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bersatubantu/fitur/welcome/splash_screen.dart';
 import 'package:bersatubantu/fitur/aturprofile/account_settings_screen.dart';
 import 'package:bersatubantu/fitur/aturprofile/donation_history_screen.dart';
+import 'package:bersatubantu/fitur/aturprofile/my_activities_screen.dart';
 import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
 import 'package:bersatubantu/fitur/dashboard/dashboard_screen.dart';
 import 'package:bersatubantu/fitur/donasi/donasi_screen.dart';
@@ -26,8 +27,6 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -40,7 +39,7 @@ class MyApp extends StatelessWidget {
           secondary: const Color(0xFF768BBD),
         ),
         scaffoldBackgroundColor: Colors.white,
-        fontFamily: 'Poppins', 
+        fontFamily: 'Poppins',
       ),
       // Langsung masuk ke ProfileScreen (Tanpa Login Screen)
       home: const ProfileScreen(),
@@ -53,7 +52,7 @@ class MyApp extends StatelessWidget {
 // ------------------------------------------------------------------
 class ProfileScreen extends StatefulWidget {
   final bool isAdmin;
-  
+
   const ProfileScreen({super.key, this.isAdmin = false});
 
   @override
@@ -62,9 +61,9 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   // Variabel inisialisasi kosong/loading (Bukan Dummy)
-  String _name = "Memuat..."; 
+  String _name = "Memuat...";
   String _email = "Memuat...";
-  
+
   final supabase = Supabase.instance.client;
 
   @override
@@ -89,7 +88,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       final user = supabase.auth.currentUser;
-      
+
       if (user == null) {
         // Jika sesi login hilang/belum login
         if (mounted) {
@@ -137,7 +136,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Atur Profil", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          title: const Text(
+            "Atur Profil",
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
           backgroundColor: Colors.white,
           elevation: 0,
         ),
@@ -150,240 +152,297 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   const CircleAvatar(
                     radius: 35,
-                  backgroundColor: Color(0xFF768BBD),
-                  child: Icon(Icons.person, size: 40, color: Colors.white),
-                ),
-                const SizedBox(width: 15),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _name,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _email,
-                        style: const TextStyle(color: Colors.grey),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                    backgroundColor: Color(0xFF768BBD),
+                    child: Icon(Icons.person, size: 40, color: Colors.white),
                   ),
-                ),
-                const Spacer(),
-                OutlinedButton(
-                  onPressed: () async {
-                    // Pindah ke halaman Edit (Tanpa kirim data dummy)
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const EditProfileScreen()),
-                    );
-                    // Refresh data DB setelah kembali (jika ada perubahan)
-                    if (result == true) {
-                      print('[ProfileScreen] Profile was updated - Refreshing data');
-                      _getProfileData();
-                    } else {
-                      print('[ProfileScreen] Profile edit was cancelled');
-                    }
-                  },
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF768BBD)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    minimumSize: const Size(0, 36),
-                  ),
-                  child: const Text("Edit Profil", style: TextStyle(color: Color(0xFF768BBD))),
-                )
-              ],
-            ),
-            const SizedBox(height: 30),
-            
-            // --- MENU LAINNYA ---
-            _buildMenuCard(
-              icon: Icons.settings_outlined,
-              title: "Pengaturan Akun",
-              subtitle: "Ubah password, notifikasi, privasi",
-              onTap: () {
-                // Navigasi ke Pengaturan Akun
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AccountSettingsScreen()),
-                );
-              },
-            ),
-            _buildMenuCard(
-              icon: Icons.history_outlined,
-              title: "Riwayat Donasi",
-              subtitle: "Lihat donasi yang telah dilakukan",
-              onTap: () {
-                // Navigasi ke Riwayat Donasi
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const DonationHistoryScreen()),
-                );
-              },
-            ),
-            const SizedBox(height: 30),
-            
-            // --- TOMBOL LOGOUT ---
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () async {
-                  // Tampilkan dialog konfirmasi logout
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      title: const Text("Konfirmasi Logout", style: TextStyle(fontWeight: FontWeight.bold)),
-                      content: const Text("Apakah Anda yakin ingin keluar dari akun ini?"),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text("Batal", style: TextStyle(color: Colors.grey)),
-                        ),
-                        ElevatedButton(
-                          onPressed: () async {
-                            Navigator.pop(context); // Tutup dialog
-                            try {
-                              // Logout dari Supabase
-                              await Supabase.instance.client.auth.signOut();
-                              if (mounted) {
-                                // Navigasi ke Splash Screen dan hapus semua route sebelumnya
-                                Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(builder: (context) => const SplashScreen()),
-                                  (route) => false,
-                                );
-                              }
-                            } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text("Gagal logout: $e")),
-                                );
-                              }
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _name,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                          child: const Text("Logout", style: TextStyle(color: Colors.white)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _email,
+                          style: const TextStyle(color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text("Logout", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ],
-        ),
-      ),
-      // Use shared BottomNavBar widget for consistent behavior
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: 3,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              // Navigate to Dashboard (replace current)
-              print('[ProfileScreen] Navigate to Dashboard via BottomNav');
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const DashboardScreen()),
-              );
-              break;
-            case 1:
-              // Navigate to Donasi screen
-              Navigator.of(context).push(MaterialPageRoute(builder: (context) => const DonasiScreen()));
-              break;
-            case 2:
-              // Navigate to Aksi (placeholder) screen
-              // Navigator.of(context).push(MaterialPageRoute(builder: (context) => AksiScreen(requestId: widget.requestId,)));
-              break;
-            case 3:
-              // already on profile
-              break;
-          }
-        },
-      ),
-      ),
-    );
-  }
-  }
-
-  Widget _buildMenuCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        margin: const EdgeInsets.only(bottom: 15),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[300]!, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF768BBD).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: const Color(0xFF768BBD), size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[600],
+                  const Spacer(),
+                  OutlinedButton(
+                    onPressed: () async {
+                      // Pindah ke halaman Edit (Tanpa kirim data dummy)
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const EditProfileScreen(),
+                        ),
+                      );
+                      // Refresh data DB setelah kembali (jika ada perubahan)
+                      if (result == true) {
+                        print(
+                          '[ProfileScreen] Profile was updated - Refreshing data',
+                        );
+                        _getProfileData();
+                      } else {
+                        print('[ProfileScreen] Profile edit was cancelled');
+                      }
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF768BBD)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      minimumSize: const Size(0, 36),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    child: const Text(
+                      "Edit Profil",
+                      style: TextStyle(color: Color(0xFF768BBD)),
+                    ),
                   ),
                 ],
               ),
-            ),
-            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
-          ],
+              const SizedBox(height: 30),
+
+              // --- MENU LAINNYA ---
+              _buildMenuCard(
+                icon: Icons.settings_outlined,
+                title: "Pengaturan Akun",
+                subtitle: "Ubah password, notifikasi, privasi",
+                onTap: () {
+                  // Navigasi ke Pengaturan Akun
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AccountSettingsScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildMenuCard(
+                icon: Icons.history_outlined,
+                title: "Riwayat Donasi",
+                subtitle: "Lihat donasi yang telah dilakukan",
+                onTap: () {
+                  // Navigasi ke Riwayat Donasi
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DonationHistoryScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildMenuCard(
+                icon: Icons.volunteer_activism_outlined,
+                title: "Kegiatan Saya",
+                subtitle: "Lihat kegiatan yang sedang/pernah diikuti",
+                onTap: () {
+                  // Navigasi ke Kegiatan Saya
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MyActivitiesScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 30),
+
+              // --- TOMBOL LOGOUT ---
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    // Tampilkan dialog konfirmasi logout
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        title: const Text(
+                          "Konfirmasi Logout",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        content: const Text(
+                          "Apakah Anda yakin ingin keluar dari akun ini?",
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text(
+                              "Batal",
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: () async {
+                              Navigator.pop(context); // Tutup dialog
+                              try {
+                                // Logout dari Supabase
+                                await Supabase.instance.client.auth.signOut();
+                                if (mounted) {
+                                  // Navigasi ke Splash Screen dan hapus semua route sebelumnya
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const SplashScreen(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text("Gagal logout: $e")),
+                                  );
+                                }
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                            child: const Text(
+                              "Logout",
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    "Logout",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Use shared BottomNavBar widget for consistent behavior
+        bottomNavigationBar: BottomNavBar(
+          currentIndex: 3,
+          onTap: (index) {
+            switch (index) {
+              case 0:
+                // Navigate to Dashboard (replace current)
+                print('[ProfileScreen] Navigate to Dashboard via BottomNav');
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => const DashboardScreen(),
+                  ),
+                );
+                break;
+              case 1:
+                // Navigate to Donasi screen
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const DonasiScreen()),
+                );
+                break;
+              case 2:
+                // Navigate to Aksi (placeholder) screen
+                // Navigator.of(context).push(MaterialPageRoute(builder: (context) => AksiScreen(requestId: widget.requestId,)));
+                break;
+              case 3:
+                // already on profile
+                break;
+            }
+          },
         ),
       ),
     );
   }
+}
 
+Widget _buildMenuCard({
+  required IconData icon,
+  required String title,
+  required String subtitle,
+  required VoidCallback onTap,
+}) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF768BBD).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: const Color(0xFF768BBD), size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+        ],
+      ),
+    ),
+  );
+}
 
 // ------------------------------------------------------------------
 // 3. EDIT PROFIL (REAL DB UPDATE)
@@ -400,7 +459,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  
+
   final supabase = Supabase.instance.client;
   bool _isLoading = false;
 
@@ -443,7 +502,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   // UPDATE KE DATABASE
   Future<void> _updateProfile() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final user = supabase.auth.currentUser;
       if (user == null) throw "User not logged in";
@@ -468,9 +527,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         );
         // Wait a bit for the snackbar to be visible then pop
         await Future.delayed(const Duration(milliseconds: 500));
-        Navigator.pop(context, true); // Return true to indicate data was updated
+        Navigator.pop(
+          context,
+          true,
+        ); // Return true to indicate data was updated
       }
-
     } catch (e) {
       // Jika Gagal (Internet mati / Error DB)
       print('[EditProfile] Error updating profile: $e');
@@ -495,7 +556,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.black, width: 2),
               ),
-              child: const Icon(Icons.priority_high, size: 30, color: Colors.black),
+              child: const Icon(
+                Icons.priority_high,
+                size: 30,
+                color: Colors.black,
+              ),
             ),
             const SizedBox(height: 15),
             const Text(
@@ -509,12 +574,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF768BBD),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 onPressed: () => Navigator.pop(context),
                 child: const Text("Oke", style: TextStyle(color: Colors.white)),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -529,7 +596,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           icon: const Icon(Icons.arrow_back_ios, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text("Edit Profil", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          "Edit Profil",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         foregroundColor: Colors.black,
         backgroundColor: Colors.white,
         elevation: 0,
@@ -548,53 +618,90 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       const CircleAvatar(
                         radius: 35,
                         backgroundColor: Color(0xFF768BBD),
-                        child: Icon(Icons.person, size: 40, color: Colors.white),
+                        child: Icon(
+                          Icons.person,
+                          size: 40,
+                          color: Colors.white,
+                        ),
                       ),
                       const SizedBox(width: 15),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(children: [
-                            ElevatedButton(
-                              onPressed: (){}, 
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[200], elevation: 0, foregroundColor: Colors.black), 
-                              child: const Text("Upload Foto", style: TextStyle(fontSize: 12))
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: (){}, 
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[200], elevation: 0, foregroundColor: Colors.black), 
-                              child: const Text("Ambil Foto", style: TextStyle(fontSize: 12))
-                            ),
-                          ])
+                          Row(
+                            children: [
+                              ElevatedButton(
+                                onPressed: () {},
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.grey[200],
+                                  elevation: 0,
+                                  foregroundColor: Colors.black,
+                                ),
+                                child: const Text(
+                                  "Upload Foto",
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton(
+                                onPressed: () {},
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.grey[200],
+                                  elevation: 0,
+                                  foregroundColor: Colors.black,
+                                ),
+                                child: const Text(
+                                  "Ambil Foto",
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
-                      )
+                      ),
                     ],
                   ),
                   const SizedBox(height: 30),
 
                   // --- FORM INPUT ---
                   _buildLabel("Nama Lengkap"),
-                  _buildTextField("Masukkan nama lengkap", controller: _fullNameController),
+                  _buildTextField(
+                    "Masukkan nama lengkap",
+                    controller: _fullNameController,
+                  ),
                   const SizedBox(height: 15),
 
                   _buildLabel("Email"),
-                  _buildTextField("Email", controller: _emailController, inputType: TextInputType.emailAddress),
+                  _buildTextField(
+                    "Email",
+                    controller: _emailController,
+                    inputType: TextInputType.emailAddress,
+                  ),
                   const SizedBox(height: 15),
 
                   _buildLabel("No. Telepon"),
-                  _buildTextField("+62 ---", controller: _phoneController, inputType: TextInputType.phone),
+                  _buildTextField(
+                    "+62 ---",
+                    controller: _phoneController,
+                    inputType: TextInputType.phone,
+                  ),
                 ],
               ),
             ),
           ),
-          
+
           // --- TOMBOL AKSI ---
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), spreadRadius: 1, blurRadius: 10)],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 10,
+                ),
+              ],
             ),
             child: Row(
               children: [
@@ -604,9 +711,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey,
                       padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                    child: const Text("Batal", style: TextStyle(color: Colors.white)),
+                    child: const Text(
+                      "Batal",
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 15),
@@ -616,11 +728,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF768BBD),
                       padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                    child: _isLoading 
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text("Simpan", style: TextStyle(color: Colors.white)),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            "Simpan",
+                            style: TextStyle(color: Colors.white),
+                          ),
                   ),
                 ),
               ],
@@ -634,20 +758,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+          color: Colors.black87,
+        ),
+      ),
     );
   }
 
-  Widget _buildTextField(String hint, {TextEditingController? controller, TextInputType inputType = TextInputType.text}) {
+  Widget _buildTextField(
+    String hint, {
+    TextEditingController? controller,
+    TextInputType inputType = TextInputType.text,
+  }) {
     return TextFormField(
       controller: controller,
       keyboardType: inputType,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF768BBD))),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 15,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFF768BBD)),
+        ),
         filled: true,
         fillColor: Colors.white,
       ),
