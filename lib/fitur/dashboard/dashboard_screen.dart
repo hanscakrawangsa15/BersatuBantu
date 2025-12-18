@@ -8,6 +8,7 @@ import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
 import 'package:bersatubantu/fitur/donasi/donasi_screen.dart'; 
 import 'package:bersatubantu/fitur/berikandonasi/berikandonasi.dart';
 import 'package:bersatubantu/fitur/aturprofile/aturprofile.dart';
+
 import 'package:bersatubantu/fitur/aksi/aksi_screen.dart';
 import 'package:bersatubantu/fitur/chat/screens/chat_list_screen.dart';
 import 'package:bersatubantu/fitur/berita_sosial/models/berita_model.dart';
@@ -21,6 +22,18 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
+  // Refresh user data when returning from other screens
+  void _onRoutePopped(dynamic result) {
+    // Trigger immediate refresh
+    _loadUserData();
+    
+    // Trigger delayed refresh to ensure data loaded properly (useful if DB update is slow)
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _loadUserData();
+      }
+    });
+  }
   final supabase = Supabase.instance.client;
   late final StreamSubscription<AuthState> _authSubscription;
 
@@ -186,19 +199,52 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   void _onNavTap(int index) async {
     if (index == _selectedIndex) return;
+
     switch (index) {
-      case 0: setState(() => _selectedIndex = index); break;
-      case 1:
-        setState(() => _selectedIndex = index);
-        await Navigator.push(context, MaterialPageRoute(builder: (context) => const DonasiScreen()));
-        _loadUserData(); 
+      case 0:
+        // Beranda
+        setState(() {
+          _selectedIndex = index;
+        });
         break;
-      case 2: setState(() => _selectedIndex = index); break;
+      case 1:
+        // Donasi Screen - Uses _onRoutePopped to refresh data on return
+        setState(() {
+          _selectedIndex = index;
+        });
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const DonasiScreen()),
+        );
+        _onRoutePopped(result);
+        break;
+      case 2:
+        // Aksi Screen
+        setState(() {
+          _selectedIndex = index;
+        });
+        // Uncomment the lines below if you have created AksiScreen
+        /* final resultAksi = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AksiScreen()),
+        );
+        _onRoutePopped(resultAksi);
+        */
+        break;
       case 3:
-        setState(() => _selectedIndex = index);
-        await Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+        // Profile Screen
+        setState(() {
+          _selectedIndex = index;
+        });
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfileScreen()),
+        );
+        // Refresh data and reset tab to 0 (Home)
         _loadUserData();
-        setState(() => _selectedIndex = 0);
+        setState(() {
+          _selectedIndex = 0;
+        });
         break;
     }
   }
