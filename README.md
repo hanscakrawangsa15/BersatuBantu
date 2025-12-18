@@ -1,3 +1,4 @@
+![github](https://github.com/user-attachments/assets/07fd0d52-22dc-45cd-8850-12833cf8e514)
 # 🤝 BersatuBantu — Unified Platform for Social Giving & Community Action
 
 <div align="center">
