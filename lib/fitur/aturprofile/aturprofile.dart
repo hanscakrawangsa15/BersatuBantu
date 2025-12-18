@@ -9,6 +9,10 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:bersatubantu/fitur/aturprofile/my_activities_screen.dart';
+import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
+import 'package:bersatubantu/fitur/dashboard/dashboard_screen.dart';
+import 'package:bersatubantu/fitur/donasi/donasi_screen.dart';
 
 // ------------------------------------------------------------------
 // 1. MAIN & INISIALISASI
@@ -40,7 +44,7 @@ class MyApp extends StatelessWidget {
           secondary: const Color(0xFF768BBD),
         ),
         scaffoldBackgroundColor: Colors.white,
-        fontFamily: 'Poppins', 
+        fontFamily: 'Poppins',
       ),
       // Langsung masuk ke ProfileScreen (Tanpa Login Screen)
       home: const ProfileScreen(),
@@ -52,7 +56,9 @@ class MyApp extends StatelessWidget {
 // 2. HALAMAN PROFIL (REAL DB CONNECTION)
 // ------------------------------------------------------------------
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final bool isAdmin;
+
+  const ProfileScreen({super.key, this.isAdmin = false});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -60,7 +66,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   // Variabel inisialisasi kosong/loading (Bukan Dummy)
-  String _name = "Memuat..."; 
+  String _name = "Memuat...";
   String _email = "Memuat...";
   int _selectedNavIndex = 3; // Profil is index 3
   
@@ -69,21 +75,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _getProfileData();
-  }
-
-  @override
-  void didUpdateWidget(covariant ProfileScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    print('[ProfileScreen] Widget updated - Refreshing profile data');
+    print('[ProfileScreen] initState - isAdmin=${widget.isAdmin}');
     _getProfileData();
   }
 
   // MURNI AMBIL DARI DATABASE
   Future<void> _getProfileData() async {
+    // Jika admin, gunakan data statis
+    if (widget.isAdmin) {
+      if (mounted) {
+        setState(() {
+          _name = "admin";
+          _email = "admin@gmail.com";
+        });
+      }
+      return;
+    }
+
     try {
       final user = supabase.auth.currentUser;
-      
+
       if (user == null) {
         // Jika sesi login hilang/belum login
         if (mounted) {
@@ -173,7 +184,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Atur Profil", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          title: const Text(
+            "Atur Profil",
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
           backgroundColor: Colors.white,
           elevation: 0,
         ),
@@ -316,74 +330,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-  }
+}
 
-  Widget _buildMenuCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        margin: const EdgeInsets.only(bottom: 15),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[300]!, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF768BBD).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: const Color(0xFF768BBD), size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[600],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
-          ],
-        ),
+Widget _buildMenuCard({
+  required IconData icon,
+  required String title,
+  required String subtitle,
+  required VoidCallback onTap,
+}) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-    );
-  }
-
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF768BBD).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: const Color(0xFF768BBD), size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+        ],
+      ),
+    ),
+  );
+}
 
 // ------------------------------------------------------------------
 // 3. EDIT PROFIL (REAL DB UPDATE)
@@ -400,7 +410,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  
+
   final supabase = Supabase.instance.client;
   bool _isLoading = false;
   
@@ -599,7 +609,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   // UPDATE KE DATABASE
   Future<void> _updateProfile() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final user = supabase.auth.currentUser;
       if (user == null) throw "User not logged in";
@@ -642,7 +652,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         );
         // Wait a bit for the snackbar to be visible then pop
         await Future.delayed(const Duration(milliseconds: 500));
-        Navigator.pop(context, true); // Return true to indicate data was updated
+        Navigator.pop(
+          context,
+          true,
+        ); // Return true to indicate data was updated
       }
 
     } catch (e, stackTrace) {
@@ -672,7 +685,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.black, width: 2),
               ),
-              child: const Icon(Icons.priority_high, size: 30, color: Colors.black),
+              child: const Icon(
+                Icons.priority_high,
+                size: 30,
+                color: Colors.black,
+              ),
             ),
             const SizedBox(height: 15),
             Text(
@@ -686,12 +703,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF768BBD),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 onPressed: () => Navigator.pop(context),
                 child: const Text("Oke", style: TextStyle(color: Colors.white)),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -706,7 +725,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           icon: const Icon(Icons.arrow_back_ios, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text("Edit Profil", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          "Edit Profil",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         foregroundColor: Colors.black,
         backgroundColor: Colors.white,
         elevation: 0,
@@ -882,26 +904,43 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                   // --- FORM INPUT ---
                   _buildLabel("Nama Lengkap"),
-                  _buildTextField("Masukkan nama lengkap", controller: _fullNameController),
+                  _buildTextField(
+                    "Masukkan nama lengkap",
+                    controller: _fullNameController,
+                  ),
                   const SizedBox(height: 15),
 
                   _buildLabel("Email"),
-                  _buildTextField("Email", controller: _emailController, inputType: TextInputType.emailAddress),
+                  _buildTextField(
+                    "Email",
+                    controller: _emailController,
+                    inputType: TextInputType.emailAddress,
+                  ),
                   const SizedBox(height: 15),
 
                   _buildLabel("No. Telepon"),
-                  _buildTextField("+62 ---", controller: _phoneController, inputType: TextInputType.phone),
+                  _buildTextField(
+                    "+62 ---",
+                    controller: _phoneController,
+                    inputType: TextInputType.phone,
+                  ),
                 ],
               ),
             ),
           ),
-          
+
           // --- TOMBOL AKSI ---
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), spreadRadius: 1, blurRadius: 10)],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 10,
+                ),
+              ],
             ),
             child: Row(
               children: [
@@ -911,9 +950,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey,
                       padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                    child: const Text("Batal", style: TextStyle(color: Colors.white)),
+                    child: const Text(
+                      "Batal",
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 15),
@@ -923,11 +967,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF768BBD),
                       padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                    child: _isLoading 
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text("Simpan", style: TextStyle(color: Colors.white)),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            "Simpan",
+                            style: TextStyle(color: Colors.white),
+                          ),
                   ),
                 ),
               ],
@@ -941,20 +997,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+          color: Colors.black87,
+        ),
+      ),
     );
   }
 
-  Widget _buildTextField(String hint, {TextEditingController? controller, TextInputType inputType = TextInputType.text}) {
+  Widget _buildTextField(
+    String hint, {
+    TextEditingController? controller,
+    TextInputType inputType = TextInputType.text,
+  }) {
     return TextFormField(
       controller: controller,
       keyboardType: inputType,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF768BBD))),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 15,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFF768BBD)),
+        ),
         filled: true,
         fillColor: Colors.white,
       ),

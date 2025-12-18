@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:bcrypt/bcrypt.dart';
+import 'dart:async';
 import '../models/verification_model.dart';
 
 class OrganizationVerificationProvider extends ChangeNotifier {
@@ -8,7 +10,8 @@ class OrganizationVerificationProvider extends ChangeNotifier {
   OrganizationVerificationData data = OrganizationVerificationData();
   bool isLoading = false;
   String? lastMessage;
-  int currentStep = 0; // 0: owner, 1: org, 2: documents, 3: verifying, 4: success
+  int currentStep =
+      0; // 0: owner, 1: org, 2: documents, 3: verifying, 4: success
 
   void setField(String fieldName, String value) {
     switch (fieldName) {
@@ -20,6 +23,12 @@ class OrganizationVerificationProvider extends ChangeNotifier {
         break;
       case 'ownerAddress':
         data.ownerAddress = value;
+        break;
+      case 'ownerEmail':
+        data.ownerEmail = value;
+        break;
+      case 'ownerPhone':
+        data.ownerPhone = value;
         break;
       case 'organizationId':
         data.organizationId = value;
@@ -41,6 +50,9 @@ class OrganizationVerificationProvider extends ChangeNotifier {
         break;
       case 'city':
         data.city = value;
+        break;
+      case 'orgPassword':
+        data.orgPassword = value;
         break;
     }
     notifyListeners();
@@ -82,87 +94,94 @@ class OrganizationVerificationProvider extends ChangeNotifier {
 
       print('[Verification] ========== START SUBMIT VERIFICATION ==========');
 
-      final userId = _supabase.auth.currentUser?.id;
-      print('[Verification] User ID: $userId');
-      
-      if (userId == null) {
-        lastMessage = 'User tidak ditemukan';
-        isLoading = false;
-        notifyListeners();
-        print('[Verification] ❌ User ID is null');
-        return false;
-      }
-
-      // Verify that at least akta and npwp are uploaded
-      if ((data.docAktaPath?.isEmpty ?? true) || (data.docNpwpPath?.isEmpty ?? true)) {
-        lastMessage = 'Akta dan NPWP harus di-upload';
-        isLoading = false;
-        notifyListeners();
-        print('[Verification] ❌ Missing required documents');
-        return false;
-      }
-
-      // Upload dokumen ke storage
-      String? aktaUrl;
-      String? npwpUrl;
-      String? otherUrl;
+      // Get URLs from provider - allow anonymous registration
+      String aktaUrl = '';
+      String npwpUrl = '';
+      String otherUrl = '';
 
       if (data.docAktaPath != null && data.docAktaPath!.isNotEmpty) {
-        // docAktaPath sekarang sudah berisi URL dari Supabase Storage
-        aktaUrl = data.docAktaPath;
+        aktaUrl = data.docAktaPath ?? '';
         print('[Verification] Akta URL: $aktaUrl');
       }
 
       if (data.docNpwpPath != null && data.docNpwpPath!.isNotEmpty) {
-        // docNpwpPath sekarang sudah berisi URL dari Supabase Storage
-        npwpUrl = data.docNpwpPath;
+        npwpUrl = data.docNpwpPath ?? '';
         print('[Verification] NPWP URL: $npwpUrl');
       }
 
       if (data.docOtherPath != null && data.docOtherPath!.isNotEmpty) {
-        // docOtherPath sekarang sudah berisi URL dari Supabase Storage
-        otherUrl = data.docOtherPath;
+        otherUrl = data.docOtherPath ?? '';
         print('[Verification] Other URL: $otherUrl');
       }
 
-      // Buat record di tabel organization_verifications
-      print('[Verification] Inserting verification record...');
+      // Hash password before storing
+      print('[Verification] Hashing password...');
+      String hashedPassword = '';
+      try {
+        hashedPassword = BCrypt.hashpw(
+          data.orgPassword ?? '',
+          BCrypt.gensalt()
+        );
+        print('[Verification] ✅ Password hashed successfully');
+      } catch (e) {
+        print('[Verification] ❌ Error hashing password: $e');
+        lastMessage = 'Error mengenkripsi password: $e';
+        isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // Insert to organization_request table
+      print('[Verification] ========== INSERTING TO ORGANIZATION_REQUEST ==========');
       print('[Verification] Data to insert:');
-      print('[Verification]   owner_name: ${data.ownerName}');
-      print('[Verification]   org_legal_name: ${data.orgLegalName}');
+      print('[Verification]   nama_organisasi: ${data.orgLegalName}');
+      print('[Verification]   nama_pemilik: ${data.ownerName}');
+      print('[Verification]   email_organisasi: ${data.email}');
+      print('[Verification]   email_pemilik: ${data.ownerEmail}');
       print('[Verification]   status: pending');
 
-      final response = await _supabase.from('organization_verifications').insert({
-        'owner_id': userId,
-        'owner_name': data.ownerName,
-        'owner_nik': data.ownerNik,
-        'owner_address': data.ownerAddress,
-        'org_legal_name': data.orgLegalName,
-        'org_npwp': data.orgNpwp,
-        'org_registration_no': data.orgRegistrationNo,
-        'email': data.email,
-        'phone': data.phone ?? '',
-        'address': data.ownerAddress ?? '',
-        'city': data.city ?? '',
-        'doc_akta_url': aktaUrl,
-        'doc_npwp_url': npwpUrl,
-        'doc_other_url': otherUrl,
+      final insertData = {
+        'nama_organisasi': data.orgLegalName ?? '',
+        'nama_pemilik': data.ownerName ?? '',
+        'email_organisasi': data.email ?? '',
+        'email_pemilik': data.ownerEmail ?? '',
+        'password_organisasi': hashedPassword,
+        'no_telpon_pemilik': data.ownerPhone ?? '',
+        'no_telpon_organisasi': data.phone ?? '',
+        'akta_berkas': aktaUrl ?? '',
+        'npwp_berkas': npwpUrl ?? '',
+        'other_berkas': otherUrl ?? '',
         'status': 'pending',
-      }).select();
+      };
+
+      print('[Verification] Insert payload: $insertData');
+
+      // Add timeout to prevent indefinite hanging
+      print('[Verification] Starting insert with 30s timeout...');
+      final response = await _supabase
+          .from('organization_request')
+          .insert(insertData)
+          .select('request_id')
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              print('[Verification] ❌ INSERT TIMEOUT after 30 seconds');
+              throw TimeoutException('Database insert timeout');
+            },
+          );
 
       print('[Verification] Insert response: $response');
 
       if (response.isNotEmpty) {
-        // Store the organization ID from the response
-        data.organizationId = response[0]['id'].toString();
+        data.verificationId = response[0]['request_id']?.toString();
+        print('[Verification] Request ID stored: ${data.verificationId}');
+        
         lastMessage = 'Verifikasi berhasil dikirim! Mohon tunggu persetujuan admin.';
-        currentStep = 3; // Stay di step verifying, jangan auto transition
+        currentStep = 3;
+        isLoading = false;
         notifyListeners();
 
-        print('[Verification] ✅ Verification submitted successfully!');
-        print('[Verification] Organization ID: ${data.organizationId}');
         print('[Verification] ========== SUBMIT VERIFICATION SUCCESS ==========');
-
         return true;
       } else {
         lastMessage = 'Gagal menyimpan data verifikasi';
@@ -171,22 +190,50 @@ class OrganizationVerificationProvider extends ChangeNotifier {
         print('[Verification] ❌ Empty response from insert');
         return false;
       }
-    } catch (e) {
-      lastMessage = 'Error: $e';
+    } on TimeoutException catch (e) {
+      print('[Verification] ❌ TimeoutException: $e');
+      lastMessage = 'Koneksi timeout. Pastikan internet stabil dan coba lagi.';
       isLoading = false;
       notifyListeners();
-      print('[Verification] ❌ Exception: $e');
-      print('[Verification] Exception type: ${e.runtimeType}');
       return false;
-    } finally {
-      if (currentStep != 4) {
-        isLoading = false;
-        notifyListeners();
+    } on PostgrestException catch (e) {
+      print('[Verification] ❌ PostgrestException: ${e.message}');
+      print('[Verification] Error code: ${e.code}');
+      print('[Verification] Error details: ${e.toString()}');
+      
+      // Check for common errors
+      if (e.code == '42501') {
+        lastMessage = 'Akses ditolak. Hubungi admin untuk permission.';
+        print('[Verification] 🔒 RLS POLICY BLOCKING INSERT');
+      } else if (e.code == '23505') {
+        lastMessage = 'Email organisasi sudah terdaftar.';
+        print('[Verification] Email UNIQUE constraint violation');
+      } else if (e.code == '23502') {
+        lastMessage = 'Data tidak lengkap. Pastikan semua field diisi.';
+        print('[Verification] NOT NULL constraint violation');
+      } else {
+        lastMessage = 'Error: ${e.message}';
       }
+      
+      isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      print('[Verification] ❌ Unexpected exception: $e');
+      print('[Verification] Exception type: ${e.runtimeType}');
+      print('[Verification] Stack trace: ${StackTrace.current}');
+      lastMessage = 'Error tak terduga: ${e.toString()}';
+      isLoading = false;
+      notifyListeners();
+      return false;
     }
   }
 
-  Future<String?> uploadFile(String bucket, String path, String filePath) async {
+  Future<String?> uploadFile(
+    String bucket,
+    String path,
+    String filePath,
+  ) async {
     try {
       // TODO: Implementasi upload file ke Supabase Storage
       // final file = File(filePath);

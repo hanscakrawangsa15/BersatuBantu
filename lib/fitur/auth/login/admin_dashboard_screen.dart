@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:bersatubantu/fitur/dashboard/admin_home.dart';
 import 'admin_login_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -21,46 +22,51 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<List<Map<String, dynamic>>> _fetchPendingVerifications() async {
     try {
-      print('[AdminDashboard] ========== FETCH PENDING VERIFICATIONS ==========');
-      
-      print('[AdminDashboard] Querying organization_verifications table...');
-      final response = await supabase
-          .from('organization_verifications')
-          .select()
-          .eq('status', 'pending')
-          .order('created_at', ascending: false);
+      print(
+        '[AdminDashboard] ========== FETCH PENDING VERIFICATIONS ==========',
+      );
 
-      print('[AdminDashboard] Query response: $response');
-      print('[AdminDashboard] Found ${response.length} pending verifications');
+      final response = await supabase
+          .from('organization_request')
+          .select('*')
+          .eq('status', 'pending')
+          .order('tanggal_request', ascending: false);
+
+      print('[AdminDashboard] Query response length: ${response.length}');
+      
+      // Debug: Print each record with all fields
+      for (int i = 0; i < response.length; i++) {
+        print('[AdminDashboard] ========== RECORD $i ==========');
+        final record = response[i] as Map<String, dynamic>;
+        print('[AdminDashboard] All fields: $record');
+        print('[AdminDashboard] request_id: ${record['request_id']}');
+        print('[AdminDashboard] nama_organisasi: ${record['nama_organisasi']}');
+        print('[AdminDashboard] nama_pemilik: ${record['nama_pemilik']}');
+        print('[AdminDashboard] email_organisasi: ${record['email_organisasi']}');
+        print('[AdminDashboard] no_telpon_organisasi: ${record['no_telpon_organisasi']}');
+        print('[AdminDashboard] status: ${record['status']}');
+      }
 
       if (response.isEmpty) {
-        print('[AdminDashboard] ⚠️ No pending verifications found');
-      } else {
-        for (int i = 0; i < response.length; i++) {
-          print('[AdminDashboard] Verification #${i + 1}:');
-          print('[AdminDashboard]   ID: ${response[i]['id']}');
-          print('[AdminDashboard]   Owner: ${response[i]['owner_name']}');
-          print('[AdminDashboard]   Organization: ${response[i]['org_legal_name']}');
-          print('[AdminDashboard]   Status: ${response[i]['status']}');
-          print('[AdminDashboard]   Created: ${response[i]['created_at']}');
-        }
+        print('[AdminDashboard] ⚠️ No pending requests found');
       }
 
       print('[AdminDashboard] ========== FETCH COMPLETE ==========');
-      return List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      print('[AdminDashboard] ❌ Error fetching verifications: $e');
-      print('[AdminDashboard] Exception type: ${e.runtimeType}');
-      return [];
+      return response.cast<Map<String, dynamic>>();
+    } catch (e, stackTrace) {
+      print('[AdminDashboard] ❌ Error fetching: $e');
+      print('[AdminDashboard] Stack trace: $stackTrace');
+      rethrow;
     }
   }
 
-  Future<void> _approveOrganization(String verificationId) async {
+  Future<void> _approveOrganization(String requestId) async {
     try {
+      int id = int.parse(requestId);
       await supabase
-          .from('organization_verifications')
-          .update({'status': 'approved'})
-          .eq('id', verificationId);
+          .from('organization_request')
+          .update({'status': 'approve'})
+          .eq('request_id', id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -86,12 +92,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  Future<void> _rejectOrganization(String verificationId) async {
+  Future<void> _rejectOrganization(String requestId) async {
     try {
+      int id = int.parse(requestId);
       await supabase
-          .from('organization_verifications')
-          .update({'status': 'rejected'})
-          .eq('id', verificationId);
+          .from('organization_request')
+          .update({'status': 'reject'})
+          .eq('request_id', id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -118,7 +125,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _downloadDocument(
-      String organizationId, String documentType) async {
+    String organizationId,
+    String documentType,
+  ) async {
     try {
       final List<dynamic> files = await supabase.storage
           .from('document_organisasi')
@@ -170,6 +179,58 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+  void _showApproveConfirmation(BuildContext context, String requestId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Persetujuan'),
+        content: const Text('Apakah Anda yakin ingin menerima organisasi ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _approveOrganization(requestId);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF768BBD),
+            ),
+            child: const Text('Ya, Terima'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRejectConfirmation(BuildContext context, String requestId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Penolakan'),
+        content: const Text('Apakah Anda yakin ingin menolak organisasi ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _rejectOrganization(requestId);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[600],
+            ),
+            child: const Text('Ya, Tolak'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -189,24 +250,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            Navigator.of(context).pushReplacement(
-              PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) =>
-                    const AdminLoginScreen(),
-                transitionsBuilder:
-                    (context, animation, secondaryAnimation, child) {
-                  const begin = Offset(-1.0, 0.0);
-                  const end = Offset.zero;
-                  const curve = Curves.easeInOut;
-                  var tween = Tween(begin: begin, end: end)
-                      .chain(CurveTween(curve: curve));
-                  var offsetAnimation = animation.drive(tween);
-                  return SlideTransition(
-                      position: offsetAnimation, child: child);
-                },
-                transitionDuration: const Duration(milliseconds: 400),
-              ),
-            );
+            Navigator.pop(context);
           },
         ),
         actions: [
@@ -236,18 +280,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red[300],
-                  ),
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
                   const SizedBox(height: 16),
                   Text(
                     'Error: ${snapshot.error}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.red[600],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.red[600]),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -262,18 +299,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.inbox,
-                    size: 64,
-                    color: Colors.grey[300],
-                  ),
+                  Icon(Icons.inbox, size: 64, color: Colors.grey[300]),
                   const SizedBox(height: 16),
                   Text(
                     'Tidak ada pengajuan menunggu',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -301,10 +331,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     itemCount: verifications.length,
                     itemBuilder: (context, index) {
                       final verification = verifications[index];
-                      return _buildVerificationCard(
-                        context,
-                        verification,
-                      );
+                      print('[AdminDashboard] ========== CARD $index ==========');
+                      print('[AdminDashboard] All keys in record: ${verification.keys.toList()}');
+                      print('[AdminDashboard] Full record: $verification');
+                      print('[AdminDashboard] nama_organisasi=${verification['nama_organisasi']}');
+                      print('[AdminDashboard] nama_pemilik=${verification['nama_pemilik']}');
+                      print('[AdminDashboard] email_organisasi=${verification['email_organisasi']}');
+                      print('[AdminDashboard] no_telpon_organisasi=${verification['no_telpon_organisasi']}');
+                      return _buildVerificationCard(context, verification);
                     },
                   ),
                 ],
@@ -340,7 +374,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      verification['org_legal_name'] ?? 'N/A',
+                      verification['nama_organisasi'] ?? 'N/A',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -349,7 +383,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      verification['owner_name'] ?? 'N/A',
+                      verification['nama_pemilik'] ?? 'N/A',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF666666),
@@ -357,7 +391,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      verification['email'] ?? 'N/A',
+                      verification['email_organisasi'] ?? 'N/A',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF666666),
@@ -365,7 +399,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      verification['phone'] ?? 'N/A',
+                      verification['no_telpon_organisasi'] ?? 'N/A',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF666666),
@@ -403,7 +437,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () => _rejectOrganization(verification['id']),
+                  onPressed: () => _showRejectConfirmation(context, verification['request_id']?.toString() ?? ''),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red[600],
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -424,7 +458,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () => _approveOrganization(verification['id']),
+                  onPressed: () => _showApproveConfirmation(context, verification['request_id']?.toString() ?? ''),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF768BBD),
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -456,29 +490,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(verification['org_legal_name'] ?? 'Detail Organisasi'),
+        title: Text(verification['nama_organisasi'] ?? 'Detail Organisasi'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildDetailRow('Nama Hukum', verification['org_legal_name']),
+              _buildDetailRow('Nama Hukum', verification['nama_organisasi']),
               const SizedBox(height: 12),
-              _buildDetailRow('Nama Pemilik', verification['owner_name']),
+              _buildDetailRow('Nama Pemilik', verification['nama_pemilik']),
               const SizedBox(height: 12),
-              _buildDetailRow('NIK', verification['owner_nik']),
+              _buildDetailRow('Email Organisasi', verification['email_organisasi']),
               const SizedBox(height: 12),
-              _buildDetailRow('Alamat', verification['owner_address']),
+              _buildDetailRow('Email Pemilik', verification['email_pemilik']),
               const SizedBox(height: 12),
-              _buildDetailRow('Email', verification['email']),
+              _buildDetailRow('No. Telepon Pemilik', verification['no_telpon_pemilik']),
               const SizedBox(height: 12),
-              _buildDetailRow('Nomor Telepon', verification['phone']),
+              _buildDetailRow('No. Telepon Organisasi', verification['no_telpon_organisasi']),
               const SizedBox(height: 12),
-              _buildDetailRow('Kota', verification['city']),
-              const SizedBox(height: 12),
-              _buildDetailRow('NPWP', verification['org_npwp']),
-              const SizedBox(height: 12),
-              _buildDetailRow('No. Registrasi', verification['org_registration_no']),
+              _buildDetailRow('Status', verification['status']),
               const SizedBox(height: 16),
               // Documents Section
               const Text(
@@ -490,12 +520,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              if (verification['doc_akta_url'] != null)
-                _buildDocumentLink('Akta Pendirian', verification['doc_akta_url']),
-              if (verification['doc_npwp_url'] != null)
-                _buildDocumentLink('NPWP', verification['doc_npwp_url']),
-              if (verification['doc_other_url'] != null)
-                _buildDocumentLink('Surat Keterangan', verification['doc_other_url']),
+              if (verification['akta_berkas'] != null && verification['akta_berkas'].toString().isNotEmpty)
+                _buildDocumentLink(
+                  'Akta Pendirian',
+                  verification['akta_berkas'],
+                ),
+              if (verification['npwp_berkas'] != null && verification['npwp_berkas'].toString().isNotEmpty)
+                _buildDocumentLink('NPWP', verification['npwp_berkas']),
+              if (verification['other_berkas'] != null && verification['other_berkas'].toString().isNotEmpty)
+                _buildDocumentLink(
+                  'Surat Keterangan',
+                  verification['other_berkas'],
+                ),
             ],
           ),
         ),
@@ -519,10 +555,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.black87,
-              ),
+              style: const TextStyle(fontSize: 12, color: Colors.black87),
             ),
           ),
           if (url != null && url.isNotEmpty)
@@ -531,7 +564,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 // Open URL in browser
                 // You can use url_launcher package
               },
-              child: const Icon(Icons.download, size: 16, color: Color(0xFF768BBD)),
+              child: const Icon(
+                Icons.download,
+                size: 16,
+                color: Color(0xFF768BBD),
+              ),
             ),
         ],
       ),

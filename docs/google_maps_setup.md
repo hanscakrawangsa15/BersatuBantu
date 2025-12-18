@@ -31,6 +31,47 @@ Langkah Mengambil dan Menggunakan Google Maps API Key
     flutter build apk
 - Untuk iOS: tambahkan key ke `Info.plist` atau panggil `GMSServices.provideAPIKey("YOUR_API_KEY")` di `AppDelegate`.
 
+5) Setup untuk Web
+- Tambahkan Google Maps JavaScript API script tag pada file `web/index.html` sebelum `flutter_bootstrap.js`:
+
+```html
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places"></script>
+```
+
+- Ganti `YOUR_API_KEY` dengan API key Anda. Jika Anda menggunakan Places (autocomplete), sertakan `libraries=places`.
+- Muat ulang halaman web setelah menambahkan script.
+Notes:
+- Autocomplete on web uses the Maps JavaScript `places` library (no CORS issues). If you previously saw "Failed to fetch" when calling the REST /place/autocomplete endpoint from the browser, switch to using the JS Places API (this project now uses it automatically when running on web).
+- Make sure the Places API and Geocoding API are enabled in Google Cloud Console and that the key is unrestricted for local development or properly restricted for production.
+- Deprecation: Google recommends using `google.maps.marker.AdvancedMarkerElement` over `google.maps.Marker` for new features. The web implementation in `google_maps_flutter_web` may still use `google.maps.Marker`. Migrating to `AdvancedMarkerElement` requires plugin changes or custom web interop; consider this when planning future updates. See:
+  - https://developers.google.com/maps/deprecations
+  - https://developers.google.com/maps/documentation/javascript/advanced-markers/migration
+
+Note: The app will try to auto-inject the Maps JavaScript API at startup if you set `GOOGLE_MAPS_API_KEY` in `.env`. If you prefer not to rely on runtime injection, add the script tag to `web/index.html` manually.
+
+- Location storage
+  - `location_name`: will contain the human-readable place/address (text).
+  - `location`: will contain latitude/longitude in JSONB format: `{ "lat": <number>, "lng": <number> }`.
+
+Note: If you prefer not to run migrations from this repo, you can keep your database as-is; the Flutter client will write the chosen place name to `location_name` (text) and the coordinates to `location` (JSON/JSONB). If `location` does not exist or is not JSONB, you'll need to add or convert that column in Supabase (via the SQL editor) so the JSON data can be stored.
+
+Quick SQL snippets for querying `location` JSONB in Supabase/Postgres:
+
+- Get lat/lng as text:
+  SELECT id, location->>'lat' AS lat, location->>'lng' AS lng FROM public.donation_campaigns;
+
+- Find campaigns within bounding box:
+  SELECT * FROM public.donation_campaigns
+  WHERE (location->>'lat')::float BETWEEN :minLat AND :maxLat
+    AND (location->>'lng')::float BETWEEN :minLng AND :maxLng;
+
+- Find campaigns close to a point (approx using degrees):
+  SELECT *, ((location->>'lat')::float - :lat)^2 + ((location->>'lng')::float - :lng)^2 AS dist_sq
+  FROM public.donation_campaigns
+  ORDER BY dist_sq LIMIT 20;
+
+
+
 5) File & konfigurasi yang sudah dibuat di repo ini
 - `lib/fitur/postingkegiatandonasi/postingkegiatandonasi.dart`:
   - Menambahkan reverse geocoding (panggilan HTTP ke Geocoding API) untuk menampilkan alamat saat pengguna memilih di peta.
