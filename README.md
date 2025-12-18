@@ -1,186 +1,228 @@
+# 🤝 BersatuBantu — Unified Platform for Social Giving & Community Action
 
-![github](https://github.com/user-attachments/assets/213b88a7-d48c-4964-886e-4c5e10f53fed)
+<div align="center">
+ 
+[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-Connected-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
+[![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart&logoColor=white)](https://dart.dev/)
+[![License](https://img.shields.io/badge/License-Academic-red)](LICENSE)
 
-# BersatuBantu — Mobile App Project
+## 🌐 Akses Aplikasi
+🔗 **File APK untuk install**:  
+(comming soon)
 
-> Digital donation ecosystem for Social News, Goods & Money Donation, Volunteer Events, and Account Verification.
-
----
-
-## Tim Pengembang
-
-Proyek ini dikembangkan oleh:
-
-| Nama | NRP | GitHub |
-|:---:|:---:|:---:|
-| Daniel Setiawan | 5026231010 | eLlawliet|
-| Izzuddin Hammadi Faiz | 5026231018 | freudian178 |
-| Kevin Nathanael | 5026231079 | kevin-079 |
-| Hans Christian Cakrawangsa | 5026231130 | hanscakrawangsa15 |
-| Dzaky Ahmad | 5026231184 | Jek786 |
-| Heber Bryan Hutajulu | 5026231204 | heberbryan |
+ **UI Design**:  
+**[![Figma](https://img.shields.io/badge/Figma-F24E1E?logo=figma&logoColor=white)](https://www.figma.com/design/qzsXWisZWtbFQU7uANxgIP/UI-App-Bersatu-Bantu--Copy-?node-id=0-1&t=ot94GksXAfgGTvTm-1)**
 
 
----
+</div>
 
-## 🌟 Project Overview
 
-BersatuBantu adalah aplikasi mobile berbasis Flutter (Dart) yang dibangun untuk memudahkan individu dan organisasi dalam melakukan donasi barang & uang, mengelola kegiatan volunteer, serta mendukung verifikasi akun organisasi secara bertahap oleh admin, lengkap dengan sistem tracking status dan fitur pesan/chat.
+
+**BersatuBantu** adalah aplikasi donasi terpadu berbasis **Flutter** yang menghubungkan **donatur**, **organisasi sosial**, dan **relawan** dalam satu platform untuk mendukung **donasi uang**, **donasi barang**, serta **kegiatan sosial dan volunteer**, dilengkapi dengan **fitur chat**, **notifikasi**, dan **verifikasi organisasi oleh admin** guna meningkatkan transparansi dan kepercayaan publik.
 
 ---
 
-### 🎯 Fokus Pengembangan: Flutter Mobile App + Supabase sebagai BaaS (Database PostgreSQL & Storage)
-
-### 🎯 MVP (Minimum Viable Product)
-
-- Daftar akun + pemilihan role (Individu/Organisasi/Admin)
-- Ajukan verifikasi akun organisasi (status: pending)
-- Admin melakukan review approve/reject
-- Notifikasi hasil verifikasi
-- Posting donasi & kegiatan volunteer (khusus akun organisasi terverifikasi)
-- Memberikan donasi barang/uang (individu)
-- Melihat riwayat partisipasi kegiatan
-- Chat antara individu ↔ organisasi
+## 📱 Screenshots
+| Splash Screen | Donasi | Volunteer| Dashboard | Chat |
+|--------------|-----------|-----------------|-----------|------|
+| ![logo](assets/bersatubantu.png) | ![logo](assets/bersatubantu.png) | ![logo](assets/bersatubantu.png) | ![logo](assets/bersatubantu.png) | ![logo](assets/bersatubantu.png) |
 
 ---
 
-## 📁 Arsitektur Aplikasi
-<pre>
+## ✨ Fitur Utama
+
+### 👥 Untuk Pengguna (User)
+- 🏠 **Dashboard Pengguna** — Melihat ringkasan donasi dan aktivitas
+- 💰 **Donasi Uang** — Berdonasi melalui campaign aktif
+- 📦 **Donasi Barang** — Input data barang dan upload foto
+- 📅 **Kegiatan & Volunteer** — Daftar dan mengikuti kegiatan sosial
+- 📜 **Riwayat Aktivitas** — Riwayat donasi dan kegiatan yang diikuti
+- 💬 **Chat** — Berkomunikasi langsung dengan organisasi
+- 🔔 **Notifikasi** — Update status donasi, kegiatan, dan pesan
+
+---
+
+### 🏢 Untuk Organisasi
+- 📝 **Registrasi Organisasi Multi-Step**
+  - Data Pemilik
+  - Data Organisasi
+  - Upload Berkas Legal
+- ⏳ **Status Verifikasi** — Pending, Approved, Rejected
+- 📊 **Dashboard Organisasi** — Kelola donasi dan kegiatan
+- 📢 **Posting Kegiatan & Donasi**
+- 💬 **Chat dengan User**
+- 📰 **Berita Sosial**
+
+---
+
+### 🛠️ Untuk Admin
+- 📋 **Dashboard Verifikasi Organisasi**
+- ✅ **Manajemen Berita**
+- 🗂️ **Manajemen Data Organisasi**
+- 🔍 **Monitoring Aktivitas Sistem**
+
+---
+
+## 🏗️ Arsitektur & Teknologi
+### Tech Stack
+- 💙 **Flutter** — Cross-platform UI framework
+- 🟢 **Supabase** — Backend as a Service
+  - Supabase Auth — Autentikasi user
+  - PostgreSQL — Database relasional
+  - Supabase Storage — Penyimpanan file & berkas
+  - Supabase Realtime — Chat & data sinkron
+- 🎯 **Dart** — Bahasa pemrograman utama
+
+---
+
+### Arsitektur Aplikasi
+```
 lib/
- ├── main.dart
- ├── config/
- │    ├── theme.dart
- │    ├── supabase_config.dart
- │    └── app_colors.dart
- │
- ├── models/
- │    ├── user.dart
- │    ├── organization_verification.dart
- │    ├── social_post.dart
- │    ├── volunteer_event.dart
- │    ├── donation.dart
- │    └── message.dart
- │
- ├── services/
- │    ├── auth_service.dart
- │    ├── organization_verification_service.dart
- │    ├── social_post_service.dart
- │    ├── volunteer_service.dart
- │    ├── donation_service.dart
- │    └── message_service.dart
- │
- ├── providers/
- │    ├── auth_provider.dart
- │    ├── admin_verification_provider.dart
- │    ├── org_verification_provider.dart
- │    ├── social_provider.dart
- │    ├── volunteer_provider.dart
- │    ├── donation_provider.dart
- │    └── message_provider.dart
- │
- ├── screens/
- │    ├── splash_screen.dart
- │    ├── login_screen.dart
- │    ├── register_screen.dart
- │    ├── organization_verification_request_screen.dart
- │    ├── admin_verification_review_screen.dart
- │    ├── home_screen.dart
- │    ├── volunteer_screen.dart
- │    ├── donation_screen.dart
- │    ├── message_screen.dart
- │    └── profile_screen.dart
- │
- ├── widgets/
- │    ├── primary_button.dart
- │    ├── dropdown_picker.dart
- │    ├── form_field.dart
- │    ├── dashboard_card.dart
- │    ├── donation_card.dart
- │    ├── volunteer_tile.dart
- │    └── message_bubble.dart
- │
- └── utils/
-      ├── file_upload_helper.dart
-      ├── date_helper.dart
-      └── validator.dart
-</pre>
-
-## Commit Message Convention 
-### Format
- 
-`<type>(optional scope): <description>`
-Example: `feat(pre-event): add speakers section`
- 
-### 1. Type
- 
-Available types are:
- 
-- feat → Changes about addition or removal of a feature. Ex: `feat: add table on landing page`, `feat: remove table from landing page`
-- fix → Bug fixing, followed by the bug. Ex: `fix: illustration overflows in mobile view`
-- docs → Update documentation (README.md)
-- style → Updating style, and not changing any logic in the code (reorder imports, fix whitespace, remove comments)
-- chore → Installing new dependencies, or bumping deps
-- refactor → Changes in code, same output, but different approach
-- test → Update testing suite, cypress files
-- revert → when reverting commits
-- perf → Fixing something regarding performance (deriving state, using memo, callback)
-- vercel → Blank commit to trigger vercel deployment. Ex: `vercel: trigger deployment`
- 
-### 2. Optional Scope
- 
-Labels per page Ex: `feat(pre-event): add date label`
- 
-\*If there is no scope needed, you don't need to write it
- 
-### 3. Description
- 
-Description must fully explain what is being done.
- 
-Add BREAKING CHANGE in the description if there is a significant change.
- 
-**If there are multiple changes, then commit one by one**
- 
-- After colon, there are a single space Ex: `feat: add something`
-- When using `fix` type, state the issue Ex: `fix: file size limiter not working`
-- Use imperative, and present tense: "change" not "changed" or "changes"
-- Don't use capitals in front of the sentence
-- Don't add full stop (.) at the end of the sentence
-
-## Troubleshooting: profile creation race / FK errors during registration ⚠️
-
-If you see logs like:
+├── 🎯 main.dart                     # Entry point aplikasi
+├── 🔐 auth/                         # Login & register (user, organisasi, admin)
+├── 👤 aturprofile/                  # Manajemen profil pengguna
+├── 🤝 aksi/                         # Aksi sosial & aktivitas umum
+├── 💰 donasi/                       # Donasi uang (campaign & transaksi)
+├── 📦 berikandonasi/                # Donasi barang
+├── 📰 berita_sosial/                # Berita & posting sosial
+├── 💬 chat/                         # Fitur chat
+│   └── 📱 screens/                  # UI chat & message
+├── 🏢 organisasi/                   # Modul organisasi
+│   ├── 📝 pendaftaran/              # Pendaftaran organisasi (multi-step)
+│   └── ✅ verifikasi_organisasi/    # Verifikasi organisasi oleh admin
+├── 📊 dashboard/                    # Dashboard (user, organisasi, admin)
+├── 📅 kegiatan/                     # Kegiatan & volunteer
+│   ├── 📌 sedang_diikuti/           # Kegiatan yang sedang diikuti
+│   └── 📜 pernah_diikuti/           # Riwayat kegiatan
+├── 🔄 loading/                      # Loading & splash state
+├── 🧭 pilihrole/                    # Pilih role pengguna
+├── ✍️ posting/                      # Posting donasi & kegiatan
+│   ├── 💰 posting_donasi/
+│   └── 📅 posting_kegiatan/
+├── 🎉 welcome/                      # Welcome & onboarding
+├── 🧩 widgets/                      # Reusable UI components
+│   ├── 🔘 button.dart
+│   ├── 📋 form_field.dart
+│   ├── 📅 date_picker.dart
+│   ├── 🪟 modal.dart
+│   └── 📊 dashboard_card.dart
+├── 🧠 models/                       # Data models & entities
+├── 🔌 services/                     # Supabase service & API handler
+├── 🔧 utils/                        # Helper & utility functions
+└── 🎨 theme/                        # Theme, color, dan typography
 
 ```
-[Register] Auth response user ID: <uuid>
-[Register] FK error detected while inserting profile ... Key (id)=(...) is not present in table "users".
+---
+
+## 🚀 Panduan Instalasi & Setup
+
+### 📋 Prerequisites
+
+Pastikan Anda telah menginstall:
+
+- **[Flutter SDK](https://flutter.dev/docs/get-started/install)** (≥3.x)
+- **[Dart SDK](https://dart.dev/get-dart)** (≥3.x)
+- **[Android Studio](https://developer.android.com/studio)** atau **[VS Code](https://code.visualstudio.com/)**
+- **[Git](https://git-scm.com/)** untuk version control
+- **Akun [Supabase](https://supabase.com/)** (project aktif)
+
+### 🔧 Langkah Instalasi
+
+#### 1. Clone Repository
+
+```bash
+git clone https://github.com/your-username/BersatuBantu.git
+cd BersatuBantu
 ```
 
-Possible causes and fixes:
+#### 2. Install Dependencies
 
-- The database trigger that automatically creates a `profiles` row when a new `auth.users` row is inserted may not be applied. Ensure `db/migrations/20251216_create_profiles_trigger.sql` has been executed on your Supabase project (use the SQL editor or `supabase db query`).
-- Verify the user actually exists in `auth.users`: `SELECT * FROM auth.users WHERE id = '<uuid>';` If the row is missing the signup didn't complete correctly.
-- If the trigger is not available or you prefer a quick fallback, the server exposes a secure admin endpoint `/admin/create-profile` that can create/upsert a profile using the Supabase service role key. Configure `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` and `ADMIN_PROFILE_KEY` in `server/.env` then call the endpoint with header `x-admin-key` to request profile creation.
-
-If you want the app to automatically request the server fallback, build the Flutter app with:
-
-```
-flutter run --dart-define=ADMIN_PROFILE_URL=https://your-server/admin/create-profile \
-                  --dart-define=ADMIN_PROFILE_KEY=your_admin_key_here
+```bash
+flutter pub get
 ```
 
-This project includes a client-side attempt + poll strategy in `lib/fitur/auth/register/register_screen.dart` and the server-side fallback implemented in `server/index.js`.
+#### 3. Setup Supabase
 
-Password reset (mobile deep-link) ⚠️
-----------------------------------
-If users click the password reset link from email and land on an unreachable localhost URL (or a page that doesn't open the app), configure Supabase Auth redirect URLs so mobile clients open your app:
+Project ini menggunakan file `.env` untuk menyimpan konfigurasi environment (Supabase).
 
-1. Open your Supabase project → Authentication → Settings → URL Configuration.
-2. Add the following to **Redirect URLs** (and/or Allowed Redirect URLs):
-      - `io.supabase.bersatubantu://reset-password` (for mobile password recovery)
-      - `io.supabase.bersatubantu://login-callback/` (for OAuth sign-ins used by the app)
-      - `http://localhost:57986/#/reset-password` (useful for local web development)
-3. Ensure the app handles the custom scheme:
-      - Android: intent-filter for `io.supabase.bersatubantu` (already added in `android/app/src/main/AndroidManifest.xml`).
-      - iOS: add `CFBundleURLTypes` (already added in `ios/Runner/Info.plist`).
+```bash
+Copy dari file `envcopy` ke `.env`
+```
+Pastikan file `envcopy` sudah tersedia di root project.
 
-When configured, clicking the reset link opens the app. The app listens for the password recovery auth event and navigates to `ResetPasswordScreen` where the user can set a new password; the app then calls `supabase.auth.updateUser(...)` which updates the password in the database so the user can sign in again with their new password.
+#### 4. Jalankan Aplikasi
+
+```bash
+# Debug mode
+flutter run
+
+# Untuk device spesifik
+flutter run -d chrome          # Web
+flutter run -d android         # Android
+flutter run -d ios             # iOS
+```
+---
+
+## 👥 Team & Credits
+
+### 🎓 Kelompok 2 - Final Project Teknologi Berkembang
+
+<div align="start">
+
+| Nama                             | NRP          |
+| -------------------------------- | ------------ |
+| **Daniel Setiawan**         | `5026231010` |
+| **Izzuddin Hammadi Faiz** | `5026231018` |
+| **Kevin Nathanael**    | `5026231079` |
+| **Hans Christian Cakrawangsa**     | `502623130` |
+| **Dzaky Ahmad**     | `502623184` |
+| **Heber Bryan Hutajulu**     | `502623204` |
+
+</div>
+
+### 🏫 Institution
+
+**Institut Teknologi Sepuluh Nopember (ITS)**  
+Mata Kuliah: Teknologi Berkembang  (B)
+Semester: Ganjil 2025/2026
+
+---
+
+### 🌍 Social Impact Inspiration
+
+Project ini terinspirasi dari:
+
+- **UN Sustainable Development Goals (SDGs)**  
+  Khususnya Goal 1 (No Poverty), Goal 10 (Reduced Inequalities), dan Goal 17 (Partnerships for the Goals)
+- **Social Giving & Community Challenges in Indonesia**  
+  Mendorong transparansi, kepercayaan, dan kolaborasi dalam kegiatan donasi dan sosial
+- **Digital Collaboration for Social Impact**  
+  Pemanfaatan teknologi digital untuk memperkuat peran individu, organisasi, dan relawan
+
+<div align="center">
+
+---
+
+### Made with Love for a Better Indonesia
+
+**"Bersatu untuk Membantu, Bergerak untuk Berdampak"**
+
+[![Made with Flutter](https://img.shields.io/badge/Made%20with-Flutter-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
+[![Powered by Supabase](https://img.shields.io/badge/Powered%20by-Supabase-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
+[![Built by Students](https://img.shields.io/badge/Built%20by-ITS%20Students-green)](https://its.ac.id/)
+
+**© 2025 BersatuBantu — Final Project Teknologi Berkembang**  
+_Institut Teknologi Sepuluh Nopember (ITS)_
+
+---
+
+ 🫱🏻‍🫲🏼 **"Setiap aksi kebaikan, sekecil apa pun, adalah langkah menuju Indonesia yang lebih peduli dan berdaya"** 🫱🏻‍🫲🏼
+
+</div>
+
+
+
+
+
+
