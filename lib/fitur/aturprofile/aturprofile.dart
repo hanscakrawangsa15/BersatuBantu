@@ -7,7 +7,6 @@ import 'package:bersatubantu/fitur/aturprofile/my_activities_screen.dart';
 import 'package:bersatubantu/fitur/widgets/bottom_navbar.dart';
 import 'package:bersatubantu/fitur/dashboard/dashboard_screen.dart';
 import 'package:bersatubantu/fitur/donasi/donasi_screen.dart';
-import 'package:bersatubantu/fitur/aksi/aksi_screen.dart';
 
 // ------------------------------------------------------------------
 // 1. MAIN & INISIALISASI
