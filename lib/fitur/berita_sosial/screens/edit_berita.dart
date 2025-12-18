@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // 1. Add Supabase import
 import 'package:bersatubantu/fitur/berita_sosial/models/berita_model.dart';
 
 class EditBeritaScreen extends StatefulWidget {
@@ -12,8 +13,11 @@ class EditBeritaScreen extends StatefulWidget {
 
 class _EditBeritaScreenState extends State<EditBeritaScreen> {
   final _formKey = GlobalKey<FormState>();
+  final supabase = Supabase.instance.client; // 2. Init Supabase
+  
   late TextEditingController _judulController;
   late TextEditingController _isiController;
+  bool _isLoading = false; // To show loading state
 
   @override
   void initState() {
@@ -29,28 +33,49 @@ class _EditBeritaScreenState extends State<EditBeritaScreen> {
     super.dispose();
   }
 
-  void _saveData() {
-    if (_formKey.currentState!.validate()) {
-      // Membuat object BeritaModel baru dengan data yang diedit
+  // --- UPDATE LOGIC HERE ---
+  Future<void> _saveData() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final title = _judulController.text;
+      final content = _isiController.text;
+
+      // 1. Send Update to Database
+      await supabase.from('news').update({
+        'title': title,
+        'content': content,
+        // Add other fields here if you edit them (e.g. category, image_url)
+      }).eq('id', widget.berita.id); // WHERE id = current ID
+
+      // 2. Create updated model locally
       BeritaModel updatedBerita = BeritaModel(
         id: widget.berita.id,
-        judul: _judulController.text,
-        isi: _isiController.text,
-        // Data di bawah ini tetap sama (kecuali Anda buat form inputnya juga)
+        judul: title,
+        isi: content,
         tanggal: widget.berita.tanggal,
-        image: widget.berita.image, // Sesuaikan dengan nama di Model
-        source: widget.berita.source, // Sesuaikan dengan nama di Model
+        image: widget.berita.image,
+        source: widget.berita.source,
         category: widget.berita.category,
       );
 
-      // TODO: Panggil API Update Data di sini
-
-      // Kembali ke layar detail membawa data baru
-      Navigator.pop(context, updatedBerita);
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Perubahan berhasil disimpan")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Perubahan berhasil disimpan")),
+        );
+        // 3. Return the new data to the previous screen
+        Navigator.pop(context, updatedBerita);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal menyimpan: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -102,7 +127,6 @@ class _EditBeritaScreenState extends State<EditBeritaScreen> {
               const SizedBox(height: 8),
               InkWell(
                 onTap: () {
-                  // TODO: Implement Image Picker Logic
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Fitur upload gambar belum tersedia")),
                   );
@@ -121,7 +145,7 @@ class _EditBeritaScreenState extends State<EditBeritaScreen> {
                                 : AssetImage(widget.berita.image) as ImageProvider,
                             fit: BoxFit.cover,
                             colorFilter: ColorFilter.mode(
-                                Colors.black.withOpacity(0.3), BlendMode.darken), // Gelapkan sedikit agar teks terlihat
+                                Colors.black.withOpacity(0.3), BlendMode.darken),
                           )
                         : null,
                   ),
@@ -152,13 +176,15 @@ class _EditBeritaScreenState extends State<EditBeritaScreen> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _saveData,
+                      onPressed: _isLoading ? null : _saveData, // Disable if loading
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.indigo,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: const Text("Simpan", style: TextStyle(color: Colors.white)),
+                      child: _isLoading 
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text("Simpan", style: TextStyle(color: Colors.white)),
                     ),
                   ),
                 ],
