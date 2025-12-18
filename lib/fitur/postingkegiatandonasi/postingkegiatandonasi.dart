@@ -92,8 +92,6 @@ class _PostingKegiatanDonasiScreenState extends State<PostingKegiatanDonasiScree
     }
   }
 
-
-
   Future<void> _pickImage() async {
     try {
       final ImagePicker picker = ImagePicker();
@@ -231,7 +229,6 @@ Jika Anda lebih suka tidak menjalankan migrasi dari repo, Anda bisa menambahkan 
     );
   }
  
-
   String _formatDate(DateTime date) {
     final months = [
       'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -269,22 +266,13 @@ Jika Anda lebih suka tidak menjalankan migrasi dari repo, Anda bisa menambahkan 
     try {
       print('[PostingDonasi] Uploading image...');
       
-      Uint8List bytes;
-      String fileExt;
-      
-      if (kIsWeb) {
-        bytes = _imageBytes!;
-        fileExt = 'jpg';
-      } else {
-        bytes = await _selectedImage!.readAsBytes();
-        fileExt = _selectedImage!.path.split('.').last;
-      }
+      final bytes = _imageBytes!;
+      final fileExt = 'jpg';
       
       // Simpan file dengan struktur folder per user agar tidak tabrakan dan memudahkan policy RLS
       final userId = supabase.auth.currentUser!.id;
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
-      // Catatan: 'donations' di bawah adalah folder di dalam bucket 'donations', bukan nama bucket lagi
-      final filePath = 'donations/$userId/$fileName';
+      final filePath = 'donations/$fileName';
 
       try {
         await supabase.storage.from('donations').uploadBinary(
@@ -296,7 +284,7 @@ Jika Anda lebih suka tidak menjalankan migrasi dari repo, Anda bisa menambahkan 
           ),
         );
       } on StorageException catch (e) {
-        if (e.statusCode == 404) {
+        if (e.statusCode == '404') {
           throw 'Bucket "donations" tidak ditemukan. Silakan buat bucket di Supabase Storage terlebih dahulu.';
         }
         rethrow;
@@ -1339,7 +1327,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                       _isInjectingMap = true;
                     });
                     try {
-                      final apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'];
+                      final apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
                       final loaded = await injectGoogleMapsScript(apiKey);
                       if (loaded) {
                         ScaffoldMessenger.of(context).showSnackBar(

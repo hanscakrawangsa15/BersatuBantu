@@ -18,7 +18,12 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Load environment variables
-  await dotenv.load(fileName: ".env");
+  try {
+    await dotenv.load(fileName: ".env");
+    print('✅ .env file loaded');
+  } catch (e) {
+    print('⚠️ No .env file found, using environment variables from Railway');
+  }
 
   // Initialize date formatting for Indonesian locale
   await initializeDateFormatting('id_ID', null);
@@ -27,11 +32,29 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Initialize Supabase
+  // Get Supabase credentials from dotenv or environment
+  final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? 
+                      const String.fromEnvironment('SUPABASE_URL');
+  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? 
+                          const String.fromEnvironment('SUPABASE_ANON_KEY');
+
+  // Debug: Print credentials (remove after fixing)
+  print('🔐 Supabase URL: ${supabaseUrl.isNotEmpty ? "✓ Set (${supabaseUrl.substring(0, 20)}...)" : "✗ Empty"}');
+  print('🔐 Supabase Key: ${supabaseAnonKey.isNotEmpty ? "✓ Set (${supabaseAnonKey.length} chars)" : "✗ Empty"}');
+
+  if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
+    print('❌ ERROR: Supabase credentials are empty!');
+    print('Please check your .env file or environment variables');
+  }
+
+  // Initialize Supabase with credentials from .env
   await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL'] ?? '',
-    anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
+    debug: true, // Enable debug mode to see API calls
   );
+
+  print('✅ Supabase initialized successfully');
 
   // Initialize intl locale data for date/time formatting
   await initializeDateFormatting('id_ID');

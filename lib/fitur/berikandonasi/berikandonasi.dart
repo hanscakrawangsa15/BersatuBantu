@@ -1103,7 +1103,8 @@ class _BerikanDonasiScreenState extends State<BerikanDonasiScreen> {
           const SizedBox(height: 12),
           ElevatedButton(
             onPressed: () async {
-              final apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'];
+              final apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? 
+                          const String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: '');
               final loaded = await injectGoogleMapsScript(apiKey);
               if (loaded) {
                 if (mounted) {
