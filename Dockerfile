@@ -1,10 +1,15 @@
 # Stage 1: Build Flutter web app
 FROM ghcr.io/cirruslabs/flutter:stable AS build
 
+# Build arguments
+ARG SUPABASE_URL
+ARG SUPABASE_ANON_KEY
+ARG GOOGLE_MAPS_API_KEY
+
 WORKDIR /app
 
 # Copy pubspec files
-COPY pubspec.* ./
+COPY pubspec.yaml pubspec.lock ./
 
 # Get dependencies
 RUN flutter pub get
@@ -21,10 +26,12 @@ FROM nginx:alpine
 # Copy built web app to nginx
 COPY --from=build /app/build/web /usr/share/nginx/html
 
-# Copy nginx config (we'll create this next)
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx config template
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
-# Expose port
+# Install envsubst (already included in nginx:alpine)
+# The nginx image will automatically process templates and substitute $PORT
+
 EXPOSE 8080
 
 # Start nginx
