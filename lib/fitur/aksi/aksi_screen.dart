@@ -12,7 +12,10 @@ import 'package:bersatubantu/fitur/donasi/donasi_screen.dart';
 import 'package:bersatubantu/fitur/aturprofile/aturprofile.dart';
 
 class AksiScreen extends StatefulWidget {
-  const AksiScreen({super.key});
+  /// If true, always show the FAB for posting events (used by organization dashboard)
+  final bool forceOrganizationMode;
+  
+  const AksiScreen({super.key, this.forceOrganizationMode = false});
 
   @override
   State<AksiScreen> createState() => _AksiScreenState();
@@ -37,7 +40,12 @@ class _AksiScreenState extends State<AksiScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserRole();
+    // If forceOrganizationMode is true, set _isOrganization directly
+    if (widget.forceOrganizationMode) {
+      _isOrganization = true;
+    } else {
+      _loadUserRole();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<VolunteerEventProvider>(
         context,

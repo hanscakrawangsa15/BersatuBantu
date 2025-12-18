@@ -328,7 +328,7 @@ class _DashboardScreenState extends State<DashboardScreenOrganisasi> with Widget
         });
         await Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const AksiScreen()),
+          MaterialPageRoute(builder: (context) => const AksiScreen(forceOrganizationMode: true)),
         );
         break;
       case 3:
