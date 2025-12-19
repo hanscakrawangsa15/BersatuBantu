@@ -1,5 +1,13 @@
-![github](https://github.com/user-attachments/assets/07fd0d52-22dc-45cd-8850-12833cf8e514)
-# 🤝 BersatuBantu — Unified Platform for Social Giving & Community Action
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/07fd0d52-22dc-45cd-8850-12833cf8e514" alt="github" width="600"/>
+</p>
+
+<h1 align="center">
+  <img src="assets/bersatubantu.png" alt="BersatuBantu Logo" width="120" />
+</h1>
+<h2 align="center">
+ 🤝 Unified Platform for Social Giving & Community Action 🤝
+</h2>
 
 <div align="center">
  
@@ -8,7 +16,7 @@
 [![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart&logoColor=white)](https://dart.dev/)
 [![License](https://img.shields.io/badge/License-Academic-red)](LICENSE)
 
-## 🌐 Akses Aplikasi
+## 🌐 Akses Aplikasi BersatuBantu
 🔗 **File APK untuk install**:  
 (comming soon)
 
@@ -25,9 +33,9 @@
 ---
 
 ## 📱 Screenshots
-| Splash Screen | Donasi | Volunteer| Dashboard | Chat |
+| Splash Screen | Dashboard | Volunteer| Donasi | Chat |
 |--------------|-----------|-----------------|-----------|------|
-| ![logo](assets/bersatubantu.png) | ![logo](assets/bersatubantu.png) | ![logo](assets/bersatubantu.png) | ![logo](assets/bersatubantu.png) | ![logo](assets/bersatubantu.png) |
+| ![logo](assets/splash.png) | ![logo](assets/dashboard.png) | ![logo](assets/volunteer.png) | ![logo](assets/donasi.png) | ![logo](assets/chat.png) |
 
 ---
 
@@ -172,14 +180,14 @@ flutter run -d ios             # iOS
 
 <div align="start">
 
-| Nama                             | NRP          |
-| -------------------------------- | ------------ |
-| **Daniel Setiawan**         | `5026231010` |
-| **Izzuddin Hammadi Faiz** | `5026231018` |
-| **Kevin Nathanael**    | `5026231079` |
-| **Hans Christian Cakrawangsa**     | `502623130` |
-| **Dzaky Ahmad**     | `502623184` |
-| **Heber Bryan Hutajulu**     | `502623204` |
+| Nama                             | NRP          | GitHub      |
+| -------------------------------- | ------------ | ----------- |
+| **Daniel Setiawan**         | `5026231010` | `eLlawliet` |
+| **Izzuddin Hammadi Faiz** | `5026231018` | `freudian178` |
+| **Kevin Nathanael**    | `5026231079` | `kevin-079` |
+| **Hans Christian Cakrawangsa**     | `502623130` | `hanscakrawangsa15` |
+| **Dzaky Ahmad**     | `502623184` | `Jek786` |
+| **Heber Bryan Hutajulu**     | `502623204` | `heberbryan` |
 
 </div>
 
@@ -187,6 +195,7 @@ flutter run -d ios             # iOS
 
 **Institut Teknologi Sepuluh Nopember (ITS)**  
 Mata Kuliah: Teknologi Berkembang  (B)
+
 Semester: Ganjil 2025/2026
 
 ---
