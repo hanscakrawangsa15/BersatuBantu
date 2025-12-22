@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../utils/place_service.dart';
+import 'package:bersatubantu/utils/place_suggestion.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import '../../utils/maps_availability.dart';
